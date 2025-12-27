@@ -12,14 +12,6 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        platform:
-          - darwin-amd64
-          - darwin-arm64
-          - linux-amd64
-          - linux-arm64
-          - windows-amd64
 
     steps:
       - uses: actions/checkout@v4
@@ -29,30 +21,15 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Parse platform
-        id: platform
+      - name: Build all platforms
         run: |
-          OS=$(echo "${{ matrix.platform }}" | cut -d'-' -f1)
-          ARCH=$(echo "${{ matrix.platform }}" | cut -d'-' -f2)
-          EXT=""
-          if [ "$OS" = "windows" ]; then
-            EXT=".exe"
-          fi
-          echo "os=$OS" >> $GITHUB_OUTPUT
-          echo "arch=$ARCH" >> $GITHUB_OUTPUT
-          echo "ext=$EXT" >> $GITHUB_OUTPUT
+          ./build.sh --all --version "${{ github.ref_name }}"
 
-      - name: Build
-        run: |
-          CGO_ENABLED=0 GOOS="${{ steps.platform.outputs.os }}" GOARCH="${{ steps.platform.outputs.arch }}" \
-            go build -ldflags="-s -w -X main.Version=${{ github.ref_name }}" \
-            -o dist/ccc-${{ matrix.platform }}${{ steps.platform.outputs.ext }} main.go
-
-      - name: Upload artifact
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ccc-${{ matrix.platform }}
-          path: dist/ccc-${{ matrix.platform }}${{ steps.platform.outputs.ext }}
+          name: ccc-binaries
+          path: dist/ccc-*
 
   release:
     name: Release
@@ -61,20 +38,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download all artifacts
+      - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
-          path: artifacts
-
-      - name: Prepare release assets
-        run: |
-          mkdir -p release
-          for artifact in artifacts/ccc-*/*; do
-            if [ -f "$artifact" ]; then
-              cp "$artifact" release/
-            fi
-          done
-          ls -lh release/
+          name: ccc-binaries
+          path: release
 
       - name: Generate checksums
         run: |

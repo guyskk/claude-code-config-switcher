@@ -14,6 +14,7 @@ BUILD_ALL=false
 PLATFORMS=()
 OUTPUT_DIR="dist"
 BINARY_NAME="ccc"
+VERSION=""
 
 # Available platforms (using plain variables for bash compatibility)
 PLATFORMS_INFO=(
@@ -33,6 +34,7 @@ print_help() {
     echo "                      Available: darwin-amd64, darwin-arm64, linux-amd64, linux-arm64, windows-amd64"
     echo "  -o, --output        Output directory (default: dist)"
     echo "  -n, --name          Binary name (default: ccc)"
+    echo "  -v, --version       Version string (default: git commit short hash)"
     echo "  -h, --help          Show this help message"
     echo ""
     echo "Examples:"
@@ -40,6 +42,7 @@ print_help() {
     echo "  $0 --all                    # Build for all platforms"
     echo "  $0 -p darwin-arm64,linux-amd64  # Build for specific platforms"
     echo "  $0 -a -o ./build            # Build all platforms to ./build directory"
+    echo "  $0 --all --version v1.0.0   # Build all platforms with version v1.0.0"
 }
 
 # Detect current platform
@@ -67,8 +70,12 @@ build_platform() {
     # Create output directory
     mkdir -p "${OUTPUT_DIR}"
 
-    # Build
-    CGO_ENABLED=0 GOOS="${os}" GOARCH="${arch}" go build -ldflags="-s -w" -o "${output_path}" main.go
+    # Build with version ldflags
+    local ldflags="-s -w"
+    if [ -n "$VERSION" ]; then
+        ldflags="$ldflags -X main.Version=${VERSION}"
+    fi
+    CGO_ENABLED=0 GOOS="${os}" GOARCH="${arch}" go build -ldflags="$ldflags" -o "${output_path}" main.go
 
     # Make executable (not needed for Windows)
     if [ "$os" != "windows" ]; then
@@ -97,6 +104,10 @@ while [[ $# -gt 0 ]]; do
             BINARY_NAME="$2"
             shift 2
             ;;
+        -v|--version)
+            VERSION="$2"
+            shift 2
+            ;;
         -h|--help)
             print_help
             exit 0
@@ -111,6 +122,15 @@ done
 
 # Main logic
 echo -e "${BLUE}Building ccc command line tool...${NC}"
+echo ""
+
+# Set default version if not specified
+if [ -z "$VERSION" ]; then
+    VERSION=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+    echo -e "${YELLOW}Version: ${BLUE}${VERSION}${NC} (auto-detected from git)"
+else
+    echo -e "${YELLOW}Version: ${BLUE}${VERSION}${NC}"
+fi
 echo ""
 
 current_platform=$(detect_current_platform)
