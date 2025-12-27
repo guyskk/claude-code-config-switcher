@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-// Config represents the structure of cccli.json
+// Config represents the structure of ccc.json
 type Config struct {
 	Settings        map[string]interface{}            `json:"settings"`
 	CurrentProvider string                            `json:"current_provider"`
@@ -29,9 +29,9 @@ func getClaudeDir() string {
 	return filepath.Join(homeDir, ".claude")
 }
 
-// getConfigPath returns the path to cccli.json
+// getConfigPath returns the path to ccc.json
 func getConfigPath() string {
-	return filepath.Join(getClaudeDir(), "cccli.json")
+	return filepath.Join(getClaudeDir(), "ccc.json")
 }
 
 // getSettingsPath returns the path to settings-{provider}.json
@@ -90,7 +90,7 @@ Environment Variables:
 	fmt.Println()
 }
 
-// loadConfig reads and parses cccli.json
+// loadConfig reads and parses ccc.json
 func loadConfig() (*Config, error) {
 	configPath := getConfigPath()
 	data, err := os.ReadFile(configPath)
@@ -106,7 +106,7 @@ func loadConfig() (*Config, error) {
 	return &config, nil
 }
 
-// saveConfig writes the config back to cccli.json
+// saveConfig writes the config back to ccc.json
 func saveConfig(config *Config) error {
 	configPath := getConfigPath()
 
@@ -223,7 +223,7 @@ func switchProvider(providerName string) error {
 		return fmt.Errorf("failed to save settings: %w", err)
 	}
 
-	// Update current_provider in cccli.json
+	// Update current_provider in ccc.json
 	config.CurrentProvider = providerName
 	if err := saveConfig(config); err != nil {
 		return fmt.Errorf("failed to update current provider: %w", err)
