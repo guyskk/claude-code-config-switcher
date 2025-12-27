@@ -1,71 +1,55 @@
-# Claude Code 配置切换器 (ccc)
+# Claude Code 配置切换器
 
-一个用于在不同 Claude Code 配置之间切换的命令行工具。
+[English](README.md)
+
+**一条命令在多个 Claude Code 提供商（Kimi、GLM、MiniMax 等）之间切换。**
 
 ## 简介
 
-`ccc`（Claude Code Config）允许你在不同的 Claude Code 提供商配置（如 Kimi、GLM、MiniMax）之间轻松切换，无需手动编辑配置文件。
+`ccc` 是一个命令行工具，让你在不同 Claude Code API 提供商配置之间无缝切换。无需手动编辑配置文件——只需运行 `ccc <provider>` 即可。
 
 ## 功能特性
 
-- 使用单个命令即可在多个 Claude Code 配置之间切换
-- 自动更新 `current_provider` 设置
-- 将所有参数传递给 Claude Code
-- 支持使用自定义配置目录的调试模式
-- 简单直观的命令行界面
-- 在帮助信息中显示可用的提供商和当前提供商
+- 一条命令切换提供商（Kimi、GLM、MiniMax 等）
+- 自动合并提供商配置
+- 透传所有 Claude Code 参数
+- 支持自定义配置目录调试
+- 简洁直观的命令行界面
 
 ## 安装
 
-### 从源码构建
-
-构建工具：
+### 快速安装
 
 ```bash
+# 克隆仓库
+git clone https://github.com/guyskk/claude-code-config-switcher.git
+cd claude-code-config-switcher
+
+# 构建当前平台
 ./build.sh
+
+# 系统级安装（可选）
+sudo cp dist/ccc-$(uname -s)-$(uname -m) /usr/local/bin/ccc
 ```
 
 ### 构建选项
 
-构建脚本支持多种平台和选项：
-
 ```bash
-# 仅构建当前平台（默认）
-./build.sh
-
-# 构建所有支持的平台
+# 构建所有平台
 ./build.sh --all
 
-# 构建特定平台（逗号分隔）
+# 构建指定平台
 ./build.sh -p darwin-arm64,linux-amd64
 
-# 指定输出目录
+# 自定义输出目录
 ./build.sh -o ./bin
-
-# 指定二进制文件名
-./build.sh -n myccc
 ```
 
-**支持的平台：**
-- `darwin-amd64` - macOS x86_64
-- `darwin-arm64` - macOS ARM64 (Apple Silicon)
-- `linux-amd64` - Linux x86_64
-- `linux-arm64` - Linux ARM64
-- `windows-amd64` - Windows x86_64
-
-### 系统级安装
-
-```bash
-# 为当前平台安装
-sudo cp dist/ccc-darwin-arm64 /usr/local/bin/ccc
-
-# 或为特定平台安装
-sudo cp dist/ccc-linux-amd64 /usr/local/bin/ccc
-```
+**支持的平台：** `darwin-amd64`、`darwin-arm64`、`linux-amd64`、`linux-arm64`、`windows-amd64`
 
 ## 配置
 
-创建 `~/.claude/ccc.json` 配置文件：
+创建 `~/.claude/ccc.json`：
 
 ```json
 {
@@ -114,81 +98,39 @@ sudo cp dist/ccc-linux-amd64 /usr/local/bin/ccc
 }
 ```
 
-配置结构说明：
-- `settings`：所有提供商共享的基础设置模板
-- `current_provider`：最后使用的提供商（自动更新）
-- `providers`：特定提供商的设置，将与基础模板合并
+**配置结构：**
+- `settings` — 所有提供商共享的基础模板
+- `current_provider` — 最后使用的提供商（自动更新）
+- `providers` — 提供商特定配置
 
-切换提供商时，工具会：
-1. 从基础 `settings` 开始
-2. 将提供商的设置深度合并到基础设置之上
-3. 提供商设置对于相同的键会覆盖基础设置
-4. 将合并结果保存到 `~/.claude/settings-{provider}.json`
+**工作原理：** 切换提供商时，`ccc` 会将提供商配置与基础模板深度合并，然后保存到 `~/.claude/settings-{provider}.json`。
 
-示例配置文件位于 `./tmp/example/` 目录中。
+更多示例见 `./tmp/example/` 目录。
 
 ## 使用方法
 
-### 基本命令
-
 ```bash
-# 显示帮助信息（显示可用的提供商）
+# 显示可用提供商
 ccc --help
 
 # 使用当前提供商运行
 ccc
 
-# 切换到并使用特定提供商运行
+# 切换到指定提供商
 ccc kimi
 
-# 将参数传递给 Claude Code
+# 传递参数给 Claude Code
 ccc kimi --help
 ccc kimi /path/to/project
-
-# 如果未设置 current_provider，则使用第一个提供商
-ccc
 ```
 
 ### 环境变量
 
-- `CCC_CONFIG_DIR`：覆盖配置目录（默认：`~/.claude/`）
+| 变量 | 说明 |
+|------|------|
+| `CCC_CONFIG_DIR` | 覆盖配置目录（默认：`~/.claude/`） |
 
-调试时非常有用：
 ```bash
+# 使用自定义配置目录调试
 CCC_CONFIG_DIR=./tmp ccc kimi
-```
-
-### 提供商切换原理
-
-1. `ccc` 读取 `~/.claude/ccc.json` 配置
-2. 将所选提供商的设置与基础设置模板深度合并
-3. 将合并的配置写入 `~/.claude/settings-{provider}.json`
-4. 更新 `ccc.json` 中的 `current_provider` 字段
-5. 执行 `claude --settings ~/.claude/settings-{provider}.json [additional-args...]`
-
-配置合并是递归的，因此像 `env` 和 `permissions` 这样的嵌套对象会被正确合并。
-
-每个提供商都有自己的设置文件（如 `settings-kimi.json`、`settings-glm.json`），让你可以轻松查看和管理不同的配置。
-
-## 命令行参考
-
-```
-用法: ccc [provider] [args...]
-
-Claude Code 配置切换器
-
-命令：
-  ccc              使用当前提供商（如果未设置则使用第一个提供商）
-  ccc <provider>   切换到指定提供商并运行 Claude Code
-  ccc --help       显示此帮助信息（显示可用的提供商）
-
-环境变量：
-  CCC_CONFIG_DIR   覆盖配置目录（默认：~/.claude/）
-
-示例：
-  ccc              使用当前提供商运行 Claude Code
-  ccc kimi         切换到 'kimi' 提供商并运行 Claude Code
-  ccc glm          切换到 'glm' 提供商并运行 Claude Code
-  ccc m2           切换到 'm2'（MiniMax）提供商并运行 Claude Code
-  ccc kimi --help  切换到 'kimi' 并将 --help 传递给 Claude Code
 ```

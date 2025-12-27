@@ -1,72 +1,55 @@
-# Claude Code Configuration Switcher (ccc)
+# Claude Code Config Switcher
 
 [阅读中文文档](README-CN.md)
 
-A command-line tool for switching between different Claude Code configurations.
+**Switch between multiple Claude Code providers (Kimi, GLM, MiniMax, etc.) with a single command.**
 
 ## Overview
 
-`ccc` (Claude Code Config) allows you to easily switch between different Claude Code provider configurations (e.g., Kimi, GLM, MiniMax) without manually editing configuration files.
+`ccc` is a CLI tool that lets you seamlessly switch between different Claude Code API provider configurations. No more manually editing config files—just run `ccc <provider>` and you're done.
 
 ## Features
 
-- Switch between multiple Claude Code configurations with a single command
-- Automatically updates the `current_provider` setting
-- Passes through all arguments to Claude Code
-- Supports debug mode with custom configuration directory
-- Simple and intuitive command-line interface
-- Displays available providers and current provider in help output
+- One-command switching between providers (Kimi, GLM, MiniMax, and more)
+- Automatic provider configuration merging
+- Pass-through of all Claude Code arguments
+- Debug mode with custom config directories
+- Clean, intuitive CLI interface
 
 ## Installation
 
-### Build from Source
+### Quick Install
 
-Build the tool:
 ```bash
+# Clone the repository
+git clone https://github.com/guyskk/claude-code-config-switcher.git
+cd claude-code-config-switcher
+
+# Build for your platform
 ./build.sh
+
+# Install system-wide (optional)
+sudo cp dist/ccc-$(uname -s)-$(uname -m) /usr/local/bin/ccc
 ```
 
 ### Build Options
 
-The build script supports multiple platforms and options:
-
 ```bash
-# Build for current platform only (default)
-./build.sh
-
-# Build for all supported platforms
+# Build for all platforms
 ./build.sh --all
 
-# Build for specific platforms (comma-separated)
+# Build for specific platforms
 ./build.sh -p darwin-arm64,linux-amd64
 
-# Specify output directory
+# Custom output directory
 ./build.sh -o ./bin
-
-# Specify binary name
-./build.sh -n myccc
 ```
 
-**Supported platforms:**
-- `darwin-amd64` - macOS x86_64
-- `darwin-arm64` - macOS ARM64 (Apple Silicon)
-- `linux-amd64` - Linux x86_64
-- `linux-arm64` - Linux ARM64
-- `windows-amd64` - Windows x86_64
-
-### Install System-wide
-
-```bash
-# For your current platform
-sudo cp dist/ccc-darwin-arm64 /usr/local/bin/ccc
-
-# Or for a specific platform
-sudo cp dist/ccc-linux-amd64 /usr/local/bin/ccc
-```
+**Supported platforms:** `darwin-amd64`, `darwin-arm64`, `linux-amd64`, `linux-arm64`, `windows-amd64`
 
 ## Configuration
 
-Create a `~/.claude/ccc.json` configuration file:
+Create `~/.claude/ccc.json`:
 
 ```json
 {
@@ -115,81 +98,39 @@ Create a `~/.claude/ccc.json` configuration file:
 }
 ```
 
-The configuration structure:
-- `settings`: Base settings template shared by all providers
-- `current_provider`: The last used provider (auto-updated)
-- `providers`: Provider-specific settings that will be merged with the base
+**Config structure:**
+- `settings` — Base template shared by all providers
+- `current_provider` — Last used provider (auto-updated)
+- `providers` — Provider-specific overrides
 
-When switching to a provider, the tool:
-1. Starts with the base `settings`
-2. Deep merges the provider's settings on top
-3. Provider settings override base settings for the same keys
-4. Saves the merged result to `~/.claude/settings-{provider}.json`
+**How it works:** When switching providers, `ccc` deep-merges the provider's config with the base template, then saves it to `~/.claude/settings-{provider}.json`.
 
-Example configuration files are provided in the `./tmp/example/` directory.
+See `./tmp/example/` for more examples.
 
 ## Usage
 
-### Basic Commands
-
 ```bash
-# Display help information (shows available providers)
+# Show available providers
 ccc --help
 
 # Run with current provider
 ccc
 
-# Switch to and run with a specific provider
+# Switch to a provider
 ccc kimi
 
 # Pass arguments to Claude Code
 ccc kimi --help
 ccc kimi /path/to/project
-
-# Use first provider if current_provider is not set
-ccc
 ```
 
 ### Environment Variables
 
-- `CCC_CONFIG_DIR`: Override the configuration directory (default: `~/.claude/`)
+| Variable | Description |
+|----------|-------------|
+| `CCC_CONFIG_DIR` | Override config directory (default: `~/.claude/`) |
 
-  Useful for debugging:
-  ```bash
-  CCC_CONFIG_DIR=./tmp ccc kimi
-  ```
-
-### How Provider Switching Works
-
-1. `ccc` reads the `~/.claude/ccc.json` configuration
-2. Deep merges the selected provider's settings with the base settings template
-3. Writes the merged configuration to `~/.claude/settings-{provider}.json`
-4. Updates the `current_provider` field in `ccc.json`
-5. Executes `claude --settings ~/.claude/settings-{provider}.json [additional-args...]`
-
-The configuration merge is recursive, so nested objects like `env` and `permissions` are properly merged.
-
-Each provider has its own settings file (e.g., `settings-kimi.json`, `settings-glm.json`), allowing you to easily see and manage different configurations.
-
-## Command Line Reference
-
-```
-Usage: ccc [provider] [args...]
-
-Claude Code Configuration Switcher
-
-Commands:
-  ccc              Use the current provider (or the first provider if none is set)
-  ccc <provider>   Switch to the specified provider and run Claude Code
-  ccc --help       Show this help message (displays available providers)
-
-Environment Variables:
-  CCC_CONFIG_DIR   Override the configuration directory (default: ~/.claude/)
-
-Examples:
-  ccc              Run Claude Code with the current provider
-  ccc kimi         Switch to 'kimi' provider and run Claude Code
-  ccc glm          Switch to 'glm' provider and run Claude Code
-  ccc m2           Switch to 'm2' (MiniMax) provider and run Claude Code
-  ccc kimi --help  Switch to 'kimi' and pass --help to Claude Code
+```bash
+# Debug with custom config
+CCC_CONFIG_DIR=./tmp ccc kimi
 ```
