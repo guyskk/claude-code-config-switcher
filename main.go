@@ -283,7 +283,6 @@ func main() {
 		// No arguments - use current provider
 		if config.CurrentProvider != "" {
 			providerName = config.CurrentProvider
-			fmt.Printf("Using current provider: %s\n", providerName)
 		} else {
 			// Use the first available provider
 			for name := range config.Providers {
@@ -294,7 +293,6 @@ func main() {
 				fmt.Fprintf(os.Stderr, "No providers configured\n")
 				os.Exit(1)
 			}
-			fmt.Printf("No current provider set, using first provider: %s\n", providerName)
 		}
 		claudeArgs = []string{}
 	} else {

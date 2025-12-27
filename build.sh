@@ -113,9 +113,9 @@ done
 echo -e "${BLUE}Building ccc command line tool...${NC}"
 echo ""
 
+current_platform=$(detect_current_platform)
 # If no platforms specified, build current platform only
 if [ "$BUILD_ALL" = false ] && [ ${#PLATFORMS[@]} -eq 0 ]; then
-    current_platform=$(detect_current_platform)
     echo -e "${YELLOW}Building for current platform: ${BLUE}${current_platform}${NC}"
     build_platform "$(echo "$current_platform" | cut -d'-' -f1)" "$(echo "$current_platform" | cut -d'-' -f2)"
 else
@@ -156,5 +156,5 @@ ls -lh "${OUTPUT_DIR}"/ccc-* 2>/dev/null || echo "  (no binaries found)"
 echo ""
 echo "To install a specific binary, run:"
 echo "  sudo cp ${OUTPUT_DIR}/ccc-<platform> /usr/local/bin/ccc"
-echo "Example:"
-echo "  sudo cp ${OUTPUT_DIR}/ccc-darwin-amd64 /usr/local/bin/ccc"
+echo "Example for current platform (${current_platform}):"
+echo "  sudo cp ${OUTPUT_DIR}/ccc-${current_platform} /usr/local/bin/ccc"
