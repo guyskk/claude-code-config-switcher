@@ -271,8 +271,7 @@ func main() {
 	// Load configuration first to check if it exists and is valid
 	config, err := loadConfig()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error loading configuration: %v\n", err)
-		fmt.Fprintf(os.Stderr, "Make sure ~/.claude/cccli.json exists and is valid\n")
+		showHelp(nil, err)
 		os.Exit(1)
 	}
 
