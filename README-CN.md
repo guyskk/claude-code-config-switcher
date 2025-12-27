@@ -18,21 +18,25 @@
 
 ## 安装
 
-### 快速安装
+### 下载预编译版本
+
+预编译的二进制文件可在 [Releases 页面](https://github.com/guyskk/claude-code-config-switcher/releases) 下载。
 
 ```bash
-# 克隆仓库
-git clone https://github.com/guyskk/claude-code-config-switcher.git
-cd claude-code-config-switcher
+# 下载你平台的版本
+curl -LO https://github.com/guyskk/claude-code-config-switcher/releases/latest/download/ccc-$(uname -s)-$(uname -m)
 
-# 构建当前平台
-./build.sh
+# 安装到系统目录
+sudo chmod +x ccc-$(uname -s)-$(uname -m)
+sudo mv ccc-$(uname -s)-$(uname -m) /usr/local/bin/ccc
 
-# 系统级安装（可选）
-sudo cp dist/ccc-$(uname -s)-$(uname -m) /usr/local/bin/ccc
+# 验证安装
+ccc --version
 ```
 
-### 构建选项
+**支持的平台：** `darwin-amd64`、`darwin-arm64`、`linux-amd64`、`linux-arm64`、`windows-amd64.exe`
+
+### 从源码构建
 
 ```bash
 # 构建所有平台

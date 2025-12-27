@@ -18,21 +18,25 @@
 
 ## Installation
 
-### Quick Install
+### Download from Releases
+
+Pre-built binaries are available on the [Releases page](https://github.com/guyskk/claude-code-config-switcher/releases).
 
 ```bash
-# Clone the repository
-git clone https://github.com/guyskk/claude-code-config-switcher.git
-cd claude-code-config-switcher
+# Download for your platform
+curl -LO https://github.com/guyskk/claude-code-config-switcher/releases/latest/download/ccc-$(uname -s)-$(uname -m)
 
-# Build for your platform
-./build.sh
+# Install system-wide
+sudo chmod +x ccc-$(uname -s)-$(uname -m)
+sudo mv ccc-$(uname -s)-$(uname -m) /usr/local/bin/ccc
 
-# Install system-wide (optional)
-sudo cp dist/ccc-$(uname -s)-$(uname -m) /usr/local/bin/ccc
+# Verify installation
+ccc --version
 ```
 
-### Build Options
+**Supported platforms:** `darwin-amd64`, `darwin-arm64`, `linux-amd64`, `linux-arm64`, `windows-amd64.exe`
+
+### Build from Source
 
 ```bash
 # Build for all platforms
