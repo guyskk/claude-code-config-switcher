@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 // Config represents the structure of cccli.json
@@ -42,7 +43,7 @@ func getSettingsPath(providerName string) string {
 }
 
 // showHelp displays usage information
-func showHelp() {
+func showHelp(config *Config, configErr error) {
 	help := `Usage: ccc [provider] [args...]
 
 Claude Code Configuration Switcher
@@ -54,13 +55,39 @@ Commands:
 
 Environment Variables:
   CCC_CONFIG_DIR     Override the configuration directory (default: ~/.claude/)
-
-Examples:
-  ccc              Run Claude Code with the current provider
-  ccc kimi         Switch to 'kimi' provider and run Claude Code
-  ccc glm          Switch to 'glm' provider and run Claude Code
 `
 	fmt.Print(help)
+
+	// Display config path and status
+	configPath := getConfigPath()
+	if configErr != nil {
+		// Extract short error message - take only the last part (most relevant)
+		errMsg := configErr.Error()
+		// Find the last colon for shorter error message
+		if lastColon := strings.LastIndex(errMsg, ":"); lastColon > 0 && lastColon < len(errMsg)-2 {
+			errMsg = errMsg[lastColon+2:]
+		}
+		// Still limit length
+		if len(errMsg) > 40 {
+			errMsg = errMsg[:37] + "..."
+		}
+		fmt.Printf("\nCurrent config: %s (%s)\n", configPath, errMsg)
+	} else {
+		fmt.Printf("\nCurrent config: %s\n", configPath)
+
+		// Display provider list from config
+		if len(config.Providers) > 0 {
+			fmt.Println("\nAvailable Providers:")
+			for name := range config.Providers {
+				marker := ""
+				if name == config.CurrentProvider {
+					marker = " (current)"
+				}
+				fmt.Printf("  %s%s\n", name, marker)
+			}
+		}
+	}
+	fmt.Println()
 }
 
 // loadConfig reads and parses cccli.json
@@ -234,9 +261,10 @@ func main() {
 	// Parse command line arguments
 	args := os.Args[1:]
 
-	// Handle --help
+	// Handle --help (try to load config for provider list, but show help anyway if it fails)
 	if len(args) == 1 && (args[0] == "--help" || args[0] == "-h") {
-		showHelp()
+		config, err := loadConfig()
+		showHelp(config, err)
 		os.Exit(0)
 	}
 
