@@ -9,6 +9,9 @@ import (
 	"strings"
 )
 
+// Version is set by build flags during release
+var Version = "dev"
+
 // Config represents the structure of ccc.json
 type Config struct {
 	Settings        map[string]interface{}            `json:"settings"`
@@ -260,6 +263,12 @@ func runClaude(providerName string, args []string) error {
 func main() {
 	// Parse command line arguments
 	args := os.Args[1:]
+
+	// Handle --version
+	if len(args) == 1 && (args[0] == "--version" || args[0] == "-v") {
+		fmt.Printf("ccc version %s\n", Version)
+		os.Exit(0)
+	}
 
 	// Handle --help (try to load config for provider list, but show help anyway if it fails)
 	if len(args) == 1 && (args[0] == "--help" || args[0] == "-h") {

@@ -45,7 +45,8 @@ jobs:
       - name: Build
         run: |
           CGO_ENABLED=0 GOOS="${{ steps.platform.outputs.os }}" GOARCH="${{ steps.platform.outputs.arch }}" \
-            go build -ldflags="-s -w" -o dist/ccc-${{ matrix.platform }}${{ steps.platform.outputs.ext }} main.go
+            go build -ldflags="-s -w -X main.Version=${{ github.ref_name }}" \
+            -o dist/ccc-${{ matrix.platform }}${{ steps.platform.outputs.ext }} main.go
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
