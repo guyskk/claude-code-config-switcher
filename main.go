@@ -13,6 +13,12 @@ import (
 // Version is set by build flags during release
 var Version = "dev"
 
+// Name is the project name (fixed string)
+var Name = "claude-code-config-switcher"
+
+// BuildTime is set by build flags during release (ISO 8601 format)
+var BuildTime = "unknown"
+
 // getClaudeDirFunc is a variable that holds the function to get the Claude directory
 // This allows tests to override it for testing purposes
 var getClaudeDirFunc = func() string {
@@ -372,7 +378,7 @@ func main() {
 
 	// Handle --version
 	if len(args) == 1 && (args[0] == "--version" || args[0] == "-v") {
-		fmt.Printf("ccc version %s\n", Version)
+		fmt.Printf("%s version %s (built at %s)\n", Name, Version, BuildTime)
 		os.Exit(0)
 	}
 

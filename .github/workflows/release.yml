@@ -23,7 +23,7 @@ jobs:
 
       - name: Build all platforms
         run: |
-          ./build.sh --all --version "${{ github.ref_name }}"
+          ./build.sh --all --version "${{ github.ref_name }}" --build-time "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
