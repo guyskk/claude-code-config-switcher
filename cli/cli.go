@@ -23,10 +23,10 @@ var BuildTime = "unknown"
 
 // Command represents a parsed CLI command.
 type Command struct {
-	Version     bool
-	Help        bool
-	Provider    string
-	ClaudeArgs  []string
+	Version    bool
+	Help       bool
+	Provider   string
+	ClaudeArgs []string
 }
 
 // Parse parses command-line arguments.

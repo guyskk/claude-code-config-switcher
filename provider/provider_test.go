@@ -17,7 +17,7 @@ func setupTestConfig(t *testing.T) *config.Config {
 		Settings: config.Settings{
 			AlwaysThinkingEnabled: true,
 			Env: config.Env{
-				"API_TIMEOUT":      "30000",
+				"API_TIMEOUT":       "30000",
 				"DISABLE_TELEMETRY": "1",
 			},
 		},
@@ -25,17 +25,17 @@ func setupTestConfig(t *testing.T) *config.Config {
 		Providers: map[string]config.ProviderConfig{
 			"kimi": {
 				Env: config.Env{
-					"ANTHROPIC_BASE_URL":    "https://api.moonshot.cn/anthropic",
-					"ANTHROPIC_AUTH_TOKEN":  "sk-kimi-xxx",
-					"ANTHROPIC_MODEL":       "kimi-k2-thinking",
+					"ANTHROPIC_BASE_URL":         "https://api.moonshot.cn/anthropic",
+					"ANTHROPIC_AUTH_TOKEN":       "sk-kimi-xxx",
+					"ANTHROPIC_MODEL":            "kimi-k2-thinking",
 					"ANTHROPIC_SMALL_FAST_MODEL": "kimi-k2-0905-preview",
 				},
 			},
 			"glm": {
 				Env: config.Env{
-					"ANTHROPIC_BASE_URL":    "https://open.bigmodel.cn/api/anthropic",
-					"ANTHROPIC_AUTH_TOKEN":  "sk-glm-xxx",
-					"ANTHROPIC_MODEL":       "glm-4.7",
+					"ANTHROPIC_BASE_URL":   "https://open.bigmodel.cn/api/anthropic",
+					"ANTHROPIC_AUTH_TOKEN": "sk-glm-xxx",
+					"ANTHROPIC_MODEL":      "glm-4.7",
 				},
 			},
 		},
@@ -324,33 +324,33 @@ func TestGetCurrentProvider(t *testing.T) {
 
 func TestShortenError(t *testing.T) {
 	tests := []struct {
-		name       string
-		err        error
-		maxLength  int
+		name         string
+		err          error
+		maxLength    int
 		wantContains string
 	}{
 		{
-			name:       "nil error",
-			err:        nil,
-			maxLength:  40,
+			name:         "nil error",
+			err:          nil,
+			maxLength:    40,
 			wantContains: "",
 		},
 		{
-			name:       "short error",
-			err:        fmt.Errorf("simple error"),
-			maxLength:  40,
+			name:         "short error",
+			err:          fmt.Errorf("simple error"),
+			maxLength:    40,
 			wantContains: "simple error",
 		},
 		{
-			name:       "long error with colon",
-			err:        fmt.Errorf("failed to read config file: open /path/to/file: no such file or directory"),
-			maxLength:  40,
+			name:         "long error with colon",
+			err:          fmt.Errorf("failed to read config file: open /path/to/file: no such file or directory"),
+			maxLength:    40,
 			wantContains: "no such file or directory",
 		},
 		{
-			name:       "error truncated",
-			err:        fmt.Errorf("this is a very long error message that should be truncated because it exceeds the maximum length"),
-			maxLength:  30,
+			name:         "error truncated",
+			err:          fmt.Errorf("this is a very long error message that should be truncated because it exceeds the maximum length"),
+			maxLength:    30,
 			wantContains: "...",
 		},
 	}

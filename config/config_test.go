@@ -342,8 +342,8 @@ func TestMergePermissions(t *testing.T) {
 	}{
 		{
 			name: "both have values",
-			p1: &Permissions{Allow: []string{"A"}, DefaultMode: "mode1"},
-			p2: &Permissions{Allow: []string{"B"}, DefaultMode: "mode2"},
+			p1:   &Permissions{Allow: []string{"A"}, DefaultMode: "mode1"},
+			p2:   &Permissions{Allow: []string{"B"}, DefaultMode: "mode2"},
 			want: &Permissions{Allow: []string{"B"}, DefaultMode: "mode2"},
 		},
 		{
@@ -387,14 +387,14 @@ func TestMergeSettings(t *testing.T) {
 			name: "merge with provider env",
 			base: &Settings{
 				AlwaysThinkingEnabled: true,
-				Env: Env{"A": "1", "B": "2"},
+				Env:                   Env{"A": "1", "B": "2"},
 			},
 			provider: &ProviderConfig{
 				Env: Env{"B": "3", "C": "4"},
 			},
 			want: &Settings{
 				AlwaysThinkingEnabled: true,
-				Env: Env{"A": "1", "B": "3", "C": "4"},
+				Env:                   Env{"A": "1", "B": "3", "C": "4"},
 			},
 		},
 		{

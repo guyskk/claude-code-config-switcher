@@ -42,9 +42,9 @@ func setupIntegrationTest(t *testing.T) (string, func()) {
 		Providers: map[string]config.ProviderConfig{
 			"kimi": {
 				Env: config.Env{
-					"ANTHROPIC_BASE_URL":    "https://api.moonshot.cn/anthropic",
-					"ANTHROPIC_AUTH_TOKEN":  "sk-kimi-test",
-					"ANTHROPIC_MODEL":       "kimi-k2-thinking",
+					"ANTHROPIC_BASE_URL":   "https://api.moonshot.cn/anthropic",
+					"ANTHROPIC_AUTH_TOKEN": "sk-kimi-test",
+					"ANTHROPIC_MODEL":      "kimi-k2-thinking",
 				},
 			},
 			"glm": {
@@ -205,7 +205,7 @@ func TestIntegrationConfigBackwardCompatible(t *testing.T) {
 		"providers": map[string]interface{}{
 			"kimi": map[string]interface{}{
 				"env": map[string]interface{}{
-					"ANTHROPIC_BASE_URL": "https://api.kimi.com",
+					"ANTHROPIC_BASE_URL":   "https://api.kimi.com",
 					"ANTHROPIC_AUTH_TOKEN": "sk-test",
 				},
 			},

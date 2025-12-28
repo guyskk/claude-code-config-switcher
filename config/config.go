@@ -32,15 +32,15 @@ type Env map[string]string
 
 // Permissions represents Claude's permissions configuration.
 type Permissions struct {
-	Allow        []string `json:"allow,omitempty"`
-	DefaultMode  string   `json:"defaultMode,omitempty"`
+	Allow       []string `json:"allow,omitempty"`
+	DefaultMode string   `json:"defaultMode,omitempty"`
 }
 
 // Settings represents Claude's settings configuration.
 type Settings struct {
-	Permissions             *Permissions `json:"permissions,omitempty"`
-	AlwaysThinkingEnabled   bool         `json:"alwaysThinkingEnabled,omitempty"`
-	Env                     Env          `json:"env,omitempty"`
+	Permissions           *Permissions `json:"permissions,omitempty"`
+	AlwaysThinkingEnabled bool         `json:"alwaysThinkingEnabled,omitempty"`
+	Env                   Env          `json:"env,omitempty"`
 }
 
 // ProviderConfig represents a single provider's configuration.

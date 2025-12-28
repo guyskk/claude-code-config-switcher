@@ -500,39 +500,39 @@ func TestMigrationFlowErrors(t *testing.T) {
 
 func TestTrimToLower(t *testing.T) {
 	tests := []struct {
-		name string
+		name  string
 		input string
-		want string
+		want  string
 	}{
 		{
-			name: "trim spaces",
+			name:  "trim spaces",
 			input: "  hello  ",
-			want: "hello",
+			want:  "hello",
 		},
 		{
-			name: "trim newline",
+			name:  "trim newline",
 			input: "yes\n",
-			want: "yes",
+			want:  "yes",
 		},
 		{
-			name: "uppercase to lowercase",
+			name:  "uppercase to lowercase",
 			input: "YES",
-			want: "yes",
+			want:  "yes",
 		},
 		{
-			name: "mixed case",
+			name:  "mixed case",
 			input: "  YeS  ",
-			want: "yes",
+			want:  "yes",
 		},
 		{
-			name: "empty string",
+			name:  "empty string",
 			input: "",
-			want: "",
+			want:  "",
 		},
 		{
-			name: "only whitespace",
+			name:  "only whitespace",
 			input: "  \t\n\r  ",
-			want: "",
+			want:  "",
 		},
 	}
 

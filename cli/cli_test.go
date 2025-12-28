@@ -31,11 +31,11 @@ func setupTestDir(t *testing.T) func() {
 
 func TestParse(t *testing.T) {
 	tests := []struct {
-		name        string
-		args        []string
-		wantVersion bool
-		wantHelp    bool
-		wantProvider string
+		name           string
+		args           []string
+		wantVersion    bool
+		wantHelp       bool
+		wantProvider   string
 		wantClaudeArgs []string
 	}{
 		{
@@ -44,8 +44,8 @@ func TestParse(t *testing.T) {
 			wantVersion: true,
 		},
 		{
-			name:     "-v flag",
-			args:     []string{"-v"},
+			name:        "-v flag",
+			args:        []string{"-v"},
 			wantVersion: true,
 		},
 		{
@@ -59,21 +59,21 @@ func TestParse(t *testing.T) {
 			wantHelp: true,
 		},
 		{
-			name:        "provider specified",
-			args:        []string{"kimi", "/path/to/project"},
-			wantProvider: "kimi",
+			name:           "provider specified",
+			args:           []string{"kimi", "/path/to/project"},
+			wantProvider:   "kimi",
 			wantClaudeArgs: []string{"/path/to/project"},
 		},
 		{
-			name:        "provider with no args",
-			args:        []string{"glm"},
-			wantProvider: "glm",
+			name:           "provider with no args",
+			args:           []string{"glm"},
+			wantProvider:   "glm",
 			wantClaudeArgs: []string{},
 		},
 		{
-			name:        "no args - use current provider",
-			args:        []string{},
-			wantProvider: "",
+			name:           "no args - use current provider",
+			args:           []string{},
+			wantProvider:   "",
 			wantClaudeArgs: []string{},
 		},
 	}
@@ -151,9 +151,9 @@ func TestDetermineProvider(t *testing.T) {
 	}
 
 	tests := []struct {
-		name        string
-		cmd         *Command
-		want        string
+		name string
+		cmd  *Command
+		want string
 	}{
 		{
 			name: "valid provider specified",
