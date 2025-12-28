@@ -7,9 +7,9 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/user/ccc/config"
-	"github.com/user/ccc/migration"
-	"github.com/user/ccc/provider"
+	"github.com/guyskk/ccc/internal/config"
+	"github.com/guyskk/ccc/internal/migration"
+	"github.com/guyskk/ccc/internal/provider"
 )
 
 // Name is the project name.
