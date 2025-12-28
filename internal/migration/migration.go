@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/user/ccc/internal/config"
+	"github.com/guyskk/ccc/internal/config"
 )
 
 // GetUserInputFunc is a function that gets user input from stdin.

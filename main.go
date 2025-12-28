@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/user/ccc/internal/cli"
+	"github.com/guyskk/ccc/internal/cli"
 )
 
 // Version is set by build flags during release.

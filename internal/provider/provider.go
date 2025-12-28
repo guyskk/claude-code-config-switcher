@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/user/ccc/internal/config"
+	"github.com/guyskk/ccc/internal/config"
 )
 
 // Switch switches to the specified provider by merging configurations.

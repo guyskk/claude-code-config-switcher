@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/user/ccc/internal/config"
+	"github.com/guyskk/ccc/internal/config"
 )
 
 // setupIntegrationTest creates a temporary directory with test configuration.

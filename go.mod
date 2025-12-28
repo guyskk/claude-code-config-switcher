@@ -1,3 +1,3 @@
-module github.com/user/ccc
+module github.com/guyskk/ccc
 
 go 1.21

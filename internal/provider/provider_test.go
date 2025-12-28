@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/user/ccc/internal/config"
+	"github.com/guyskk/ccc/internal/config"
 )
 
 // setupTestConfig creates a test configuration.
