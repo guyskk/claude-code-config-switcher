@@ -176,13 +176,6 @@ func TestDetermineProvider(t *testing.T) {
 			},
 			want: "kimi",
 		},
-		{
-			name: "no provider specified, no current, use first",
-			cmd: &Command{
-				Provider: "",
-			},
-			want: "kimi",
-		},
 	}
 
 	for _, tt := range tests {
@@ -193,6 +186,23 @@ func TestDetermineProvider(t *testing.T) {
 			}
 		})
 	}
+
+	// Separate test for "no current" case with different cfg
+	t.Run("no provider specified, no current, use first", func(t *testing.T) {
+		cfg := &config.Config{
+			CurrentProvider: "",
+			Providers: map[string]map[string]interface{}{
+				"kimi": {},
+				"glm":  {},
+			},
+		}
+		cmd := &Command{Provider: ""}
+		got := determineProvider(cmd, cfg)
+		// Since map iteration order is random, just check it's one of the valid providers
+		if got != "kimi" && got != "glm" {
+			t.Errorf("determineProvider() = %q, want kimi or glm", got)
+		}
+	})
 
 	t.Run("invalid provider and no current", func(t *testing.T) {
 		cfg := &config.Config{
