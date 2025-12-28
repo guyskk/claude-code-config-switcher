@@ -15,6 +15,7 @@ PLATFORMS=()
 OUTPUT_DIR="dist"
 BINARY_NAME="ccc"
 VERSION=""
+BUILD_TIME=""
 
 # Available platforms (using plain variables for bash compatibility)
 PLATFORMS_INFO=(
@@ -35,6 +36,7 @@ print_help() {
     echo "  -o, --output        Output directory (default: dist)"
     echo "  -n, --name          Binary name (default: ccc)"
     echo "  -v, --version       Version string (default: git commit short hash)"
+    echo "  -t, --build-time    Build time in ISO 8601 format (default: current UTC time)"
     echo "  -h, --help          Show this help message"
     echo ""
     echo "Examples:"
@@ -75,6 +77,9 @@ build_platform() {
     if [ -n "$VERSION" ]; then
         ldflags="$ldflags -X main.Version=${VERSION}"
     fi
+    if [ -n "$BUILD_TIME" ]; then
+        ldflags="$ldflags -X main.BuildTime=${BUILD_TIME}"
+    fi
     CGO_ENABLED=0 GOOS="${os}" GOARCH="${arch}" go build -ldflags="$ldflags" -o "${output_path}" main.go
 
     # Make executable (not needed for Windows)
@@ -108,6 +113,10 @@ while [[ $# -gt 0 ]]; do
             VERSION="$2"
             shift 2
             ;;
+        -t|--build-time)
+            BUILD_TIME="$2"
+            shift 2
+            ;;
         -h|--help)
             print_help
             exit 0
@@ -130,6 +139,14 @@ if [ -z "$VERSION" ]; then
     echo -e "${YELLOW}Version: ${BLUE}${VERSION}${NC} (auto-detected from git)"
 else
     echo -e "${YELLOW}Version: ${BLUE}${VERSION}${NC}"
+fi
+
+# Set default build time if not specified
+if [ -z "$BUILD_TIME" ]; then
+    BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    echo -e "${YELLOW}Build time: ${BLUE}${BUILD_TIME}${NC} (auto-generated)"
+else
+    echo -e "${YELLOW}Build time: ${BLUE}${BUILD_TIME}${NC}"
 fi
 echo ""
 
