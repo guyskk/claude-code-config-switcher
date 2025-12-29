@@ -523,14 +523,14 @@ func TestPrintSummary(t *testing.T) {
 // Test testAPIConnection with various scenarios
 func TestTestAPIConnection(t *testing.T) {
 	t.Run("invalid URL format", func(t *testing.T) {
-		status := testAPIConnection("://invalid-url", "sk-test")
+		status := testAPIConnection("://invalid-url", "sk-test", "")
 		if !strings.Contains(status, "failed") {
 			t.Errorf("testAPIConnection() = %q, want contains 'failed'", status)
 		}
 	})
 
 	t.Run("unreachable URL", func(t *testing.T) {
-		status := testAPIConnection("http://localhost:9999/anthropic", "sk-test")
+		status := testAPIConnection("http://localhost:9999/anthropic", "sk-test", "")
 		if !strings.Contains(status, "failed") {
 			t.Errorf("testAPIConnection() = %q, want contains 'failed'", status)
 		}
