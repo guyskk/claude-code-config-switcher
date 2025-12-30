@@ -31,12 +31,15 @@ func setupTestDir(t *testing.T) func() {
 
 func TestParse(t *testing.T) {
 	tests := []struct {
-		name           string
-		args           []string
-		wantVersion    bool
-		wantHelp       bool
-		wantProvider   string
-		wantClaudeArgs []string
+		name             string
+		args             []string
+		wantVersion      bool
+		wantHelp         bool
+		wantValidate     bool
+		wantValidateAll  bool
+		wantValidateProv string
+		wantProvider     string
+		wantClaudeArgs   []string
 	}{
 		{
 			name:        "--version flag",
@@ -76,6 +79,23 @@ func TestParse(t *testing.T) {
 			wantProvider:   "",
 			wantClaudeArgs: []string{},
 		},
+		{
+			name:         "validate command",
+			args:         []string{"validate"},
+			wantValidate: true,
+		},
+		{
+			name:             "validate with provider",
+			args:             []string{"validate", "kimi"},
+			wantValidate:     true,
+			wantValidateProv: "kimi",
+		},
+		{
+			name:            "validate with --all",
+			args:            []string{"validate", "--all"},
+			wantValidate:    true,
+			wantValidateAll: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -87,6 +107,17 @@ func TestParse(t *testing.T) {
 			}
 			if cmd.Help != tt.wantHelp {
 				t.Errorf("Help = %v, want %v", cmd.Help, tt.wantHelp)
+			}
+			if cmd.Validate != tt.wantValidate {
+				t.Errorf("Validate = %v, want %v", cmd.Validate, tt.wantValidate)
+			}
+			if cmd.ValidateOpts != nil {
+				if cmd.ValidateOpts.Provider != tt.wantValidateProv {
+					t.Errorf("ValidateOpts.Provider = %q, want %q", cmd.ValidateOpts.Provider, tt.wantValidateProv)
+				}
+				if cmd.ValidateOpts.ValidateAll != tt.wantValidateAll {
+					t.Errorf("ValidateOpts.ValidateAll = %v, want %v", cmd.ValidateOpts.ValidateAll, tt.wantValidateAll)
+				}
 			}
 			if cmd.Provider != tt.wantProvider {
 				t.Errorf("Provider = %q, want %q", cmd.Provider, tt.wantProvider)
