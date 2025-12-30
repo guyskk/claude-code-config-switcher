@@ -229,30 +229,25 @@ func ValidateProvider(cfg Config, providerName string) *ValidationResult {
 	return result
 }
 
-// testAPIConnection tests if the API endpoint is reachable using a minimal request.
-// If model is configured, uses it. Otherwise, fetches available models and selects the best one.
-// First tries /v1/messages endpoint, falls back to /v1/models for providers with strict access control.
+// testAPIConnection tests if the API endpoint is reachable.
+// If model is configured, tests with /v1/messages. Otherwise, tests with /v1/models.
+// No fallback logic - direct return of success or error.
 func testAPIConnection(baseURL, authToken, model string) string {
 	client := &http.Client{
 		Timeout: 8 * time.Second,
 	}
 
-	// If no model specified, fetch available models and select the best one
+	// If no model specified, validate by fetching models list
 	if model == "" {
-		models, err := fetchAvailableModels(baseURL, authToken)
+		_, err := fetchAvailableModels(baseURL, authToken)
 		if err != nil {
-			// If we can't fetch models, try with "default" as fallback
-			model = "default"
-		} else {
-			model = selectBestModel(models)
-			if model == "" {
-				// No models available, try with "default"
-				model = "default"
-			}
+			return fmt.Sprintf("failed: %v", err)
 		}
+		// Successfully fetched models - token is valid
+		return "ok"
 	}
 
-	// Try /v1/messages endpoint (full validation test)
+	// Model is configured, test with /v1/messages endpoint
 	messagesURL := strings.TrimSuffix(baseURL, "/") + "/v1/messages"
 	body := fmt.Sprintf(`{"model":"%s","max_tokens":10,"messages":[{"role":"user","content":"1+1=?"}]}`, model)
 
@@ -279,62 +274,11 @@ func testAPIConnection(baseURL, authToken, model string) string {
 		return "ok"
 	}
 
-	// Check for specific errors that indicate the provider has strict access control
-	// but may still work with the actual Claude Code client
-	// In this case, fall back to /v1/models endpoint which validates the token
-	strictAccessErrors := []string{
-		"暂不支持非 claude code 请求",
-		"not supported from non-claude-code",
-		"仅支持 claude code 请求",
-	}
-
-	for _, errPattern := range strictAccessErrors {
-		if strings.Contains(respStr, errPattern) {
-			// Fall back to /v1/models endpoint
-			return testModelsEndpoint(baseURL, authToken)
-		}
-	}
-
 	// Error format: HTTP {code} {response}
 	if respStr != "" {
 		return fmt.Sprintf("HTTP %d: %s", resp.StatusCode, respStr)
 	}
 	return fmt.Sprintf("HTTP %d", resp.StatusCode)
-}
-
-// testModelsEndpoint tests the /v1/models endpoint which validates the token without requiring message sending.
-func testModelsEndpoint(baseURL, authToken string) string {
-	client := &http.Client{
-		Timeout: 8 * time.Second,
-	}
-
-	modelsURL := strings.TrimSuffix(baseURL, "/") + "/v1/models"
-
-	req, err := http.NewRequest("GET", modelsURL, nil)
-	if err != nil {
-		return fmt.Sprintf("failed: %v", err)
-	}
-
-	req.Header.Set("Authorization", "Bearer "+authToken)
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return fmt.Sprintf("failed: %v", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		// Successfully validated - token is valid and API is accessible
-		return "ok"
-	}
-
-	buf, _ := io.ReadAll(io.LimitReader(resp.Body, 200))
-	respStr := strings.TrimSpace(string(buf))
-
-	if respStr != "" {
-		return fmt.Sprintf("HTTP %d (models): %s", resp.StatusCode, respStr)
-	}
-	return fmt.Sprintf("HTTP %d (models)", resp.StatusCode)
 }
 
 // ValidateAllProviders validates all configured providers.
