@@ -19,6 +19,6 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 
 ## 项目背景
 
-本项目使用 OpenSpec 管理开发流程，你要用相应的 Slash Command (Skills)，例如 /openspec:proposal 规划需求和任务，/openspec:apply 执行任务，完成后使用 /openspec:archive 归档。
+本项目使用 OpenSpec 管理开发流程，你要根据具体任务情况，用相应的 Skills，例如 openspec:proposal 规划需求和任务，openspec:apply 执行任务，完成后使用 openspec:archive 归档。
 
-项目具体内容见 @README.md （必读） 和 @openspec/project.md （必读）。
+具体内容见 @README.md （必读），@/openspec/AGENTS.md (必读) 和 @openspec/project.md （必读）。

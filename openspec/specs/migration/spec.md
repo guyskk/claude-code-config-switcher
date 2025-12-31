@@ -1,9 +1,8 @@
-# migration 规范变更
+# migration Specification
 
-本规范迁移现有的 `config-migration` 功能到独立的 `migration` 包。
-
-## MODIFIED Requirements
-
+## Purpose
+TBD - created by archiving change refactor-modular-architecture. Update Purpose after archive.
+## Requirements
 ### Requirement: 旧配置检测
 
 系统 SHALL 能够检测 `~/.claude/settings.json` 文件是否存在，以便决定是否提供配置迁移选项。
@@ -68,3 +67,4 @@
 - **WHEN** 调用 `MigrateFromSettings()` 函数
 - **THEN** 应当返回错误
 - **AND** 错误信息应当包含 "failed to parse settings file"
+
