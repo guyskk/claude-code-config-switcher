@@ -2,17 +2,24 @@
 package supervisor
 
 import (
+	"bufio"
 	"fmt"
+	"os"
+	"os/exec"
+	"strings"
+	"syscall"
+
+	"github.com/creack/pty"
 )
 
 // Supervisor manages the Agent-Supervisor automatic loop.
 type Supervisor struct {
-	settingsPath       string
-	claudeArgs         []string
-	completionMarker   string
-	sessionID          string
-	userInput          string
-	supervisorFeedback string
+	settingsPath     string
+	claudeArgs       []string
+	completionMarker string
+	sessionID        string
+	userInputs       []string // Accumulate all user inputs
+	agentOutputs     []string // Accumulate all agent outputs
 }
 
 // Config holds the configuration for Supervisor.
@@ -32,35 +39,67 @@ func New(cfg *Config) *Supervisor {
 		settingsPath:     cfg.SettingsPath,
 		claudeArgs:       cfg.ClaudeArgs,
 		completionMarker: cfg.CompletionMarker,
+		userInputs:       []string{},
+		agentOutputs:     []string{},
 	}
 }
 
 // Run starts the Supervisor loop.
 func (s *Supervisor) Run() error {
 	fmt.Println("Supervisor mode enabled")
+	fmt.Println("Enter your task (press Ctrl+D when done):")
+
+	// Read initial user input from stdin
+	initialInput, err := s.readUserInput()
+	if err != nil {
+		return fmt.Errorf("failed to read input: %w", err)
+	}
+	if strings.TrimSpace(initialInput) == "" {
+		return fmt.Errorf("empty input")
+	}
+
+	s.userInputs = append(s.userInputs, initialInput)
 
 	return s.loop()
 }
 
+// readUserInput reads multi-line input from stdin until Ctrl+D.
+func (s *Supervisor) readUserInput() (string, error) {
+	var lines []string
+	scanner := bufio.NewScanner(os.Stdin)
+
+	fmt.Print("> ")
+	for scanner.Scan() {
+		lines = append(lines, scanner.Text())
+		fmt.Print("> ")
+	}
+
+	if err := scanner.Err(); err != nil {
+		return "", err
+	}
+
+	// Ctrl+D pressed, join lines
+	return strings.Join(lines, "\n"), nil
+}
+
 // loop implements the main Agent-Supervisor loop.
 func (s *Supervisor) loop() error {
+	iteration := 0
 	for {
-		// Phase 1: Run Agent
-		sessionID, userInput, err := s.runAgent()
+		iteration++
+
+		// Phase 1: Run Agent with accumulated input
+		fmt.Printf("\n=== Agent Iteration %d ===\n", iteration)
+		sessionID, output, err := s.runAgentIteration()
 		if err != nil {
 			return fmt.Errorf("agent phase failed: %w", err)
 		}
 
 		s.sessionID = sessionID
-
-		// If this is a feedback iteration, replace userInput
-		if s.supervisorFeedback != "" {
-			s.userInput = s.supervisorFeedback
-		} else {
-			s.userInput = userInput
-		}
+		s.agentOutputs = append(s.agentOutputs, output)
 
 		// Phase 2: Run Supervisor check
+		fmt.Printf("\n=== Supervisor Check ===\n")
 		completed, feedback, err := s.runSupervisorCheck()
 		if err != nil {
 			return fmt.Errorf("supervisor check failed: %w", err)
@@ -68,51 +107,144 @@ func (s *Supervisor) loop() error {
 
 		// Phase 3: Check if task is completed
 		if completed {
-			fmt.Println("\n[Supervisor] Task completed")
+			fmt.Println("\n[Supervisor] Task completed!")
 			break
 		}
 
-		// Phase 4: Feed feedback back to Agent
-		s.supervisorFeedback = feedback
+		// Phase 4: Feed feedback back to Agent for next iteration
 		fmt.Printf("\n[Supervisor Feedback]\n%s\n", feedback)
 		fmt.Println("\n[Continuing with feedback...]")
+
+		// Add feedback as new user input for next iteration
+		s.userInputs = append(s.userInputs, feedback)
 	}
 
-	// Final: Resume the original session
+	// Final: Resume the original session for user interaction
 	return s.resumeFinal()
 }
 
-// runAgent runs the Agent phase.
-func (s *Supervisor) runAgent() (sessionID, userInput string, err error) {
-	// Start Agent session
-	agent, err := StartAgent(s.settingsPath, s.claudeArgs)
-	if err != nil {
-		return "", "", err
-	}
-	defer agent.Close()
+// runAgentIteration runs one Agent iteration with current input.
+func (s *Supervisor) runAgentIteration() (sessionID, output string, err error) {
+	// Get the latest user input (or initial input for first iteration)
+	input := s.userInputs[len(s.userInputs)-1]
 
-	// Run Agent until it stops
-	result, err := agent.Run()
-	if err != nil {
-		return "", "", err
+	// Build claude command with --print mode
+	args := []string{"claude", "--settings", s.settingsPath, "--print", "--output-format", "stream-json"}
+
+	// Add initial args if provided
+	if len(s.claudeArgs) > 0 {
+		args = append(args, s.claudeArgs...)
 	}
 
-	return result.SessionID, result.UserInput, nil
+	// If resuming, add --resume flag
+	if s.sessionID != "" {
+		args = append(args, "--resume", s.sessionID)
+	}
+
+	// Create command
+	cmd := exec.Command(args[0], args[1:]...)
+
+	// Set input
+	cmd.Stdin = strings.NewReader(input)
+
+	// Start pty
+	ptyFile, err := pty.Start(cmd)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to start pty: %w", err)
+	}
+	defer ptyFile.Close()
+
+	// Read output and parse stream-json
+	var outputBuilder strings.Builder
+	buf := make([]byte, 4096)
+
+	for {
+		n, err := ptyFile.Read(buf)
+		if n > 0 {
+			chunk := string(buf[:n])
+			fmt.Print(chunk) // Show to user
+			outputBuilder.WriteString(chunk)
+
+			// Try to parse stream-json for session ID
+			msg, parseErr := ParseStreamJSONLine(chunk)
+			if parseErr == nil && msg != nil && msg.SessionID != "" {
+				sessionID = msg.SessionID
+			}
+		}
+
+		if err != nil {
+			// Check if process exited normally
+			if cmd.Process != nil {
+				cmd.Process.Wait()
+			}
+			break
+		}
+	}
+
+	return sessionID, outputBuilder.String(), nil
 }
 
 // runSupervisorCheck runs the Supervisor check phase.
 func (s *Supervisor) runSupervisorCheck() (completed bool, feedback string, err error) {
-	fmt.Println("\n[Supervisor] Checking work quality...")
-
-	result := RunSupervisorCheck(s.sessionID, s.userInput, s.completionMarker)
-	if result.Error != nil {
-		return false, "", result.Error
+	// Get Supervisor prompt
+	supervisorPrompt, err := GetSupervisorPrompt()
+	if err != nil {
+		return false, "", fmt.Errorf("failed to get supervisor prompt: %w", err)
 	}
 
-	return result.Completed, result.Feedback, nil
+	// Build context with all user inputs
+	userInputContext := strings.Join(s.userInputs, "\n\n---\n\n")
+
+	// Build the prompt for Supervisor
+	checkPrompt := fmt.Sprintf("用户输入:\n%s\n\n请检查 Agent 的工作是否完成，是否满足用户需求。", userInputContext)
+
+	// Build claude command for Supervisor
+	args := []string{
+		"claude",
+		"--fork-session",
+		"--resume", s.sessionID,
+		"--system-prompt", supervisorPrompt,
+		"--print",
+		"--output-format", "stream-json",
+		"--",
+		checkPrompt,
+	}
+
+	// Execute command and capture output
+	cmd := exec.Command(args[0], args[1:]...)
+	output, err := cmd.Output()
+	if err != nil {
+		return false, "", fmt.Errorf("supervisor command failed: %w", err)
+	}
+
+	// Parse output
+	outputStr := string(output)
+
+	// Check for completion marker
+	completed = IsTaskCompleted(outputStr, s.completionMarker)
+
+	// Extract feedback (remove completion marker if present)
+	feedback = strings.TrimSpace(outputStr)
+	if completed {
+		feedback = strings.ReplaceAll(feedback, s.completionMarker, "")
+		feedback = strings.TrimSpace(feedback)
+	}
+
+	return completed, feedback, nil
 }
 
 // resumeFinal resumes the original session for user interaction.
 func (s *Supervisor) resumeFinal() error {
-	return ResumeAgent(s.sessionID, s.settingsPath, "")
+	fmt.Println("\n=== Resuming for final interaction ===")
+
+	claudePath, err := exec.LookPath("claude")
+	if err != nil {
+		return fmt.Errorf("claude not found in PATH: %w", err)
+	}
+
+	args := []string{"claude", "--resume", s.sessionID, "--settings", s.settingsPath}
+	env := os.Environ()
+
+	// Use syscall.Exec to replace current process
+	return syscall.Exec(claudePath, args, env)
 }
