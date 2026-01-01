@@ -7,7 +7,7 @@
 ### 核心目标
 - **简单易用**: 一条命令完成提供商切换
 - **独立可执行**: 单一静态链接二进制文件，无运行时外部依赖
-- **跨平台支持**: 支持 macOS、Linux 和 Windows（amd64/arm64）
+- **跨平台支持**: 支持 macOS 和 Linux（amd64/arm64）
 - **安全可靠**: 配置深度合并，支持提供商特定覆盖
 
 ## Tech Stack
@@ -16,7 +16,7 @@
 - **构建系统**: GNU Bash (`build.sh`)，支持交叉编译
 - **分发方式**: 单一静态二进制文件（所有依赖在构建时静态链接）
 - **CI/CD**: GitHub Actions
-- **支持平台**: darwin-amd64, darwin-arm64, linux-amd64, linux-arm64, windows-amd64
+- **支持平台**: darwin-amd64, darwin-arm64, linux-amd64, linux-arm64
 
 ## Project Conventions
 

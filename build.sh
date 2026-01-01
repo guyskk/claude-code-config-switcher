@@ -23,7 +23,6 @@ PLATFORMS_INFO=(
     "darwin-arm64|macOS ARM64 (Apple Silicon)"
     "linux-amd64|Linux x86_64"
     "linux-arm64|Linux ARM64"
-    "windows-amd64|Windows x86_64"
 )
 
 print_help() {
@@ -32,7 +31,7 @@ print_help() {
     echo "Options:"
     echo "  -a, --all           Build for all supported platforms"
     echo "  -p, --platforms     Build for specific platforms (comma-separated)"
-    echo "                      Available: darwin-amd64, darwin-arm64, linux-amd64, linux-arm64, windows-amd64"
+    echo "                      Available: darwin-amd64, darwin-arm64, linux-amd64, linux-arm64"
     echo "  -o, --output        Output directory (default: dist)"
     echo "  -n, --name          Binary name (default: ccc)"
     echo "  -v, --version       Version string (default: git commit short hash)"
@@ -62,11 +61,6 @@ build_platform() {
     local output_name="${BINARY_NAME}-${platform_key}"
     local output_path="${OUTPUT_DIR}/${output_name}"
 
-    # Add .exe extension for Windows
-    if [ "$os" = "windows" ]; then
-        output_path="${output_path}.exe"
-    fi
-
     echo -e "${YELLOW}Building for ${BLUE}${os}/${arch}${NC}..."
 
     # Create output directory
@@ -82,10 +76,7 @@ build_platform() {
     fi
     CGO_ENABLED=0 GOOS="${os}" GOARCH="${arch}" go build -ldflags="$ldflags" -o "${output_path}" main.go
 
-    # Make executable (not needed for Windows)
-    if [ "$os" != "windows" ]; then
-        chmod +x "${output_path}"
-    fi
+    chmod +x "${output_path}"
 
     echo -e "${GREEN}  ✓${NC} ${output_path}"
 }
@@ -158,7 +149,7 @@ if [ "$BUILD_ALL" = false ] && [ ${#PLATFORMS[@]} -eq 0 ]; then
 else
     # Build for specified or all platforms
     if [ "$BUILD_ALL" = true ]; then
-        PLATFORMS=("darwin-amd64" "darwin-arm64" "linux-amd64" "linux-arm64" "windows-amd64")
+        PLATFORMS=("darwin-amd64" "darwin-arm64" "linux-amd64" "linux-arm64")
     fi
 
     echo -e "${YELLOW}Building for ${#PLATFORMS[@]} platform(s):${NC}"
@@ -176,7 +167,7 @@ else
         done
         if [ "$valid" = false ]; then
             echo -e "${RED}  ✗ Invalid platform: ${platform}${NC}"
-            echo "  Available platforms: darwin-amd64, darwin-arm64, linux-amd64, linux-arm64, windows-amd64"
+            echo "  Available platforms: darwin-amd64, darwin-arm64, linux-amd64, linux-arm64"
             exit 1
         fi
 

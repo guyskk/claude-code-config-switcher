@@ -270,8 +270,7 @@ func determineProvider(cmd *Command, cfg *config.Config) string {
 }
 
 // runClaude executes the claude command with the settings file.
-// On Unix systems, this replaces the current process with claude using exec.
-// On Windows, this runs claude as a subprocess.
+// This replaces the current process with claude using syscall.Exec.
 func runClaude(cfg *config.Config, providerName string, settings map[string]interface{}, args []string) error {
 	// Find claude executable path
 	claudePath, err := exec.LookPath("claude")
@@ -291,9 +290,7 @@ func runClaude(cfg *config.Config, providerName string, settings map[string]inte
 	authToken := provider.GetAuthToken(settings)
 	env := append(os.Environ(), fmt.Sprintf("ANTHROPIC_AUTH_TOKEN=%s", authToken))
 
-	// Execute the process
-	// On Unix: replaces current process (does not return on success)
-	// On Windows: runs as subprocess and waits
+	// Execute the process (replaces current process, does not return on success)
 	return executeProcess(claudePath, execArgs, env)
 }
 
