@@ -129,7 +129,7 @@ func (s *Supervisor) runAgentIteration() (sessionID, output string, err error) {
 	input := s.userInputs[len(s.userInputs)-1]
 
 	// Build claude command with --print mode
-	args := []string{"claude", "--settings", s.settingsPath, "--print", "--output-format", "stream-json"}
+	args := []string{"claude", "--settings", s.settingsPath, "--print", "--output-format", "stream-json", "--verbose"}
 
 	// Add initial args if provided
 	if len(s.claudeArgs) > 0 {
@@ -206,6 +206,7 @@ func (s *Supervisor) runSupervisorCheck() (completed bool, feedback string, err 
 		"--system-prompt", supervisorPrompt,
 		"--print",
 		"--output-format", "stream-json",
+		"--verbose",
 		"--",
 		checkPrompt,
 	}

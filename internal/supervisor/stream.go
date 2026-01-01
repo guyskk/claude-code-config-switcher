@@ -10,8 +10,8 @@ import (
 // StreamMessage represents a message from claude stream-json output.
 type StreamMessage struct {
 	Type      string `json:"type"`
-	SessionID string `json:"sessionId"`
-	Content   string `json:"content"`
+	SessionID string `json:"session_id"`
+	Content   string `json:"content,omitempty"`
 	// Add more fields as needed based on actual stream-json structure
 }
 

@@ -13,8 +13,8 @@ func TestParseStreamJSONLine(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "valid message with sessionId",
-			line: `{"type":"text","sessionId":"abc-123","content":"hello"}`,
+			name: "valid message with session_id",
+			line: `{"type":"text","session_id":"abc-123","content":"hello"}`,
 			want: &StreamMessage{
 				Type:      "text",
 				SessionID: "abc-123",
