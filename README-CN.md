@@ -30,14 +30,7 @@
 OS=$(uname -s | tr '[:upper:]' '[:lower:]'); ARCH=$(uname -m | sed -e 's/x86_64/amd64/' -e 's/aarch64/arm64/'); curl -LO "https://github.com/guyskk/claude-code-config-switcher/releases/latest/download/ccc-${OS}-${ARCH}" && sudo install -m 755 "ccc-${OS}-${ARCH}" /usr/local/bin/ccc && rm "ccc-${OS}-${ARCH}" && ccc --version
 ```
 
-**Windows (PowerShell)**
-
-```powershell
-# 自动检测平台并安装
-$os = "windows"; $arch = if ([Environment]::Is64BitProcess) { "amd64" } else { throw "32-bit not supported" }; Invoke-WebRequest -Uri "https://github.com/guyskk/claude-code-config-switcher/releases/latest/download/ccc-${os}-${arch}.exe" -OutFile "ccc.exe"; Move-Item -Path "ccc.exe" -Destination "$env:USERPROFILE\AppData\Local\Microsoft\WindowsApps\ccc.exe" -Force; ccc --version
-```
-
-**支持的平台：** `darwin-amd64`、`darwin-arm64`、`linux-amd64`、`linux-arm64`、`windows-amd64`
+**支持的平台：** `darwin-amd64`、`darwin-arm64`、`linux-amd64`、`linux-arm64`
 
 ### 从源码构建
 
@@ -52,7 +45,7 @@ $os = "windows"; $arch = if ([Environment]::Is64BitProcess) { "amd64" } else { t
 ./build.sh -o ./bin
 ```
 
-**支持的平台：** `darwin-amd64`、`darwin-arm64`、`linux-amd64`、`linux-arm64`、`windows-amd64`
+**支持的平台：** `darwin-amd64`、`darwin-arm64`、`linux-amd64`、`linux-arm64`
 
 ## 配置
 
