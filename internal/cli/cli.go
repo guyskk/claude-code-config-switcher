@@ -270,35 +270,31 @@ func determineProvider(cmd *Command, cfg *config.Config) string {
 }
 
 // runClaude executes the claude command with the settings file.
+// On Unix systems, this replaces the current process with claude using exec.
+// On Windows, this runs claude as a subprocess.
 func runClaude(cfg *config.Config, providerName string, settings map[string]interface{}, args []string) error {
+	// Find claude executable path
+	claudePath, err := exec.LookPath("claude")
+	if err != nil {
+		return fmt.Errorf("claude not found in PATH: %w", err)
+	}
+
+	// Build arguments (argv[0] must be the program name)
 	settingsPath := config.GetSettingsPath(providerName)
-
-	// Extract ANTHROPIC_AUTH_TOKEN from env
-	authToken := provider.GetAuthToken(settings)
-
-	// Build the claude command: merge configured claude_args with command-line args
-	var cmdArgs []string
-	cmdArgs = append(cmdArgs, "--settings", settingsPath)
+	execArgs := []string{"claude", "--settings", settingsPath}
 	if len(cfg.ClaudeArgs) > 0 {
-		cmdArgs = append(cmdArgs, cfg.ClaudeArgs...)
+		execArgs = append(execArgs, cfg.ClaudeArgs...)
 	}
-	cmdArgs = append(cmdArgs, args...)
-	claudeCmd := exec.Command("claude", cmdArgs...)
+	execArgs = append(execArgs, args...)
 
-	// Set up environment variables
-	claudeCmd.Env = append(os.Environ(), fmt.Sprintf("ANTHROPIC_AUTH_TOKEN=%s", authToken))
+	// Build environment variables
+	authToken := provider.GetAuthToken(settings)
+	env := append(os.Environ(), fmt.Sprintf("ANTHROPIC_AUTH_TOKEN=%s", authToken))
 
-	// Set up stdin, stdout, stderr
-	claudeCmd.Stdin = os.Stdin
-	claudeCmd.Stdout = os.Stdout
-	claudeCmd.Stderr = os.Stderr
-
-	// Execute the command
-	if err := claudeCmd.Run(); err != nil {
-		return fmt.Errorf("failed to run claude: %w", err)
-	}
-
-	return nil
+	// Execute the process
+	// On Unix: replaces current process (does not return on success)
+	// On Windows: runs as subprocess and waits
+	return executeProcess(claudePath, execArgs, env)
 }
 
 // Execute is the main entry point for the CLI.
