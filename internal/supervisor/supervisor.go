@@ -64,11 +64,10 @@ func (s *Supervisor) Run() error {
 
 // readUserInput reads multi-line input using promptui.
 func (s *Supervisor) readUserInput() (string, error) {
-	fmt.Println("\n📝 Please enter your task:")
-	fmt.Println("   (Press Enter to confirm, Ctrl+C to cancel)")
+	fmt.Println()
 
 	prompt := promptui.Prompt{
-		Label:     "Task",
+		Label:     ">",
 		Validate:  validateNotEmpty,
 		Pointer:   promptui.PipeCursor,
 		Default:   "",
