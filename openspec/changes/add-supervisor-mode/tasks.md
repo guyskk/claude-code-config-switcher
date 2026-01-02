@@ -8,12 +8,12 @@
 - [x] 验证：`go build` 成功
 
 ### 2. 创建 internal/supervisor 包结构
-- [ ] 创建 `internal/supervisor` 目录
-- [ ] 创建 `supervisor.go`（主循环）
-- [ ] 创建 `agent.go`（Agent pty 交互）
-- [ ] 创建 `supervisor_check.go`（Supervisor 调用）
-- [ ] 创建 `stream.go`（stream-json 解析）
-- [ ] 创建 `prompt.go`（SUPERVISOR.md 读取）
+- [x] 创建 `internal/supervisor` 目录
+- [x] 创建 `supervisor.go`（主循环）
+- [x] 创建 `agent.go`（Agent pty 交互）
+- [x] ~~创建 `supervisor_check.go`（Supervisor 调用）~~ 已重构整合
+- [x] 创建 `stream.go`（stream-json 解析）
+- [x] 创建 `prompt.go`（SUPERVISOR.md 读取）
 
 ### 3. 实现 stream.go - stream-json 解析
 - [x] 定义 `StreamMessage` 结构体
