@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"syscall"
 )
 
 // Supervisor manages the Agent-Supervisor automatic loop.
@@ -209,25 +208,46 @@ func (s *Supervisor) runSupervisorCheck() (completed bool, feedback string, err 
 		return false, "", fmt.Errorf("supervisor command failed: %w, output: %s", err, string(output))
 	}
 
-	// Parse output
+	// Parse stream-json output to extract actual text content
 	outputStr := string(output)
+	lines := strings.Split(outputStr, "\n")
 
-	// Check for completion marker
-	completed = IsTaskCompleted(outputStr, s.completionMarker)
+	// Extract text from result message (the actual supervisor response)
+	var textContent strings.Builder
+	for _, line := range lines {
+		msg, parseErr := ParseStreamJSONLine(line)
+		if parseErr == nil && msg != nil {
+			// Get text from either content or result field
+			var text string
+			if msg.Type == "result" && msg.Result != "" {
+				text = msg.Result
+			} else if msg.Content != "" {
+				text = msg.Content
+			}
 
-	// Extract feedback (remove completion marker if present)
-	feedback = strings.TrimSpace(outputStr)
-	if completed {
-		feedback = strings.ReplaceAll(feedback, s.completionMarker, "")
-		feedback = strings.TrimSpace(feedback)
+			if text != "" {
+				// Check for completion marker
+				if IsTaskCompleted(text, s.completionMarker) {
+					completed = true
+					// Remove marker from text
+					text = strings.ReplaceAll(text, s.completionMarker, "")
+				}
+				// Accumulate text content
+				if textContent.Len() > 0 {
+					textContent.WriteString("\n")
+				}
+				textContent.WriteString(text)
+			}
+		}
 	}
 
+	feedback = strings.TrimSpace(textContent.String())
 	return completed, feedback, nil
 }
 
 // resumeFinal resumes the original session for user interaction.
 func (s *Supervisor) resumeFinal() error {
-	fmt.Println("\n=== Resuming for final interaction ===")
+	fmt.Println("\n=== Resuming session for interaction ===")
 
 	claudePath, err := exec.LookPath("claude")
 	if err != nil {
@@ -235,8 +255,20 @@ func (s *Supervisor) resumeFinal() error {
 	}
 
 	args := []string{"claude", "--resume", s.sessionID, "--settings", s.settingsPath}
-	env := os.Environ()
 
-	// Use syscall.Exec to replace current process
-	return syscall.Exec(claudePath, args, env)
+	// Run claude interactively
+	cmd := exec.Command(claudePath, args[1:]...)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	// Run the command and wait for it to complete
+	if err := cmd.Run(); err != nil {
+		// Resume failed, but supervisor task is complete
+		fmt.Printf("\nNote: Session resume ended: %v\n", err)
+		fmt.Println("Supervisor mode finished successfully.")
+		return nil
+	}
+
+	return nil
 }

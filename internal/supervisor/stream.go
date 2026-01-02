@@ -12,7 +12,7 @@ type StreamMessage struct {
 	Type      string `json:"type"`
 	SessionID string `json:"session_id"`
 	Content   string `json:"content,omitempty"`
-	// Add more fields as needed based on actual stream-json structure
+	Result    string `json:"result,omitempty"` // For type="result" messages
 }
 
 // ParseStreamJSONLine parses a single line of stream-json output.
