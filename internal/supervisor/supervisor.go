@@ -188,8 +188,10 @@ func (s *Supervisor) runSupervisorCheck() (completed bool, feedback string, err 
 	checkPrompt := fmt.Sprintf("用户输入:\n%s\n\n请检查 Agent 的工作是否完成，是否满足用户需求。", userInputContext)
 
 	// Build claude command for Supervisor
+	// Must include --settings to ensure fork session has correct API configuration
 	args := []string{
 		"claude",
+		"--settings", s.settingsPath,
 		"--fork-session",
 		"--resume", s.sessionID,
 		"--system-prompt", supervisorPrompt,
