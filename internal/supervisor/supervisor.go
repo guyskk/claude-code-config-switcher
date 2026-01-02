@@ -202,10 +202,11 @@ func (s *Supervisor) runSupervisorCheck() (completed bool, feedback string, err 
 	}
 
 	// Execute command and capture output
+	// Use CombinedOutput to capture both stdout and stderr for better error debugging
 	cmd := exec.Command(args[0], args[1:]...)
-	output, err := cmd.Output()
+	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return false, "", fmt.Errorf("supervisor command failed: %w", err)
+		return false, "", fmt.Errorf("supervisor command failed: %w, output: %s", err, string(output))
 	}
 
 	// Parse output
