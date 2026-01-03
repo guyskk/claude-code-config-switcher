@@ -155,18 +155,20 @@ func RunSupervisorHook(args []string) error {
 	jsonSchema := `{"type":"object","properties":{"completed":{"type":"boolean"},"feedback":{"type":"string"}},"required":["completed","feedback"]}`
 
 	// Build claude command
+	// Use --print to get output without entering interactive mode
 	args2 := []string{
 		"claude",
 		"--settings", settingsPath,
-		"--fork-session",
+		"--print",
 		"--resume", input.SessionID,
+		"--verbose",
 		"--output-format", "stream-json",
 		"--json-schema", jsonSchema,
 		"--system-prompt", supervisorPrompt,
 	}
 
 	// Log the command being executed
-	fmt.Fprintf(os.Stderr, "[ccc supervisor-hook] Executing: claude --settings %s --fork-session --resume %s --output-format stream-json --json-schema <schema> --system-prompt <prompt>\n", settingsPath, input.SessionID)
+	fmt.Fprintf(os.Stderr, "[ccc supervisor-hook] Executing: claude --settings %s --print --resume %s --output-format stream-json --json-schema <schema> --system-prompt <prompt>\n", settingsPath, input.SessionID)
 	if logFile != nil {
 		timestamp := time.Now().Format("2006-01-02T15:04:05.000Z")
 		fmt.Fprintf(logFile, "[%s] Executing claude command with %d args\n", timestamp, len(args2))
