@@ -190,6 +190,10 @@ func SwitchWithHook(cfg *config.Config, providerName string) (settingsPath strin
 		settingsWithHook[k] = v
 	}
 
+	// Ensure hooks are enabled (these settings may prevent hooks from executing)
+	settingsWithHook["disableAllHooks"] = false
+	settingsWithHook["allowManagedHooksOnly"] = false
+
 	// Create hooks configuration
 	hooks := map[string]interface{}{
 		"Stop": []map[string]interface{}{
