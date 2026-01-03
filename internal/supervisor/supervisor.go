@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // Supervisor manages the Agent-Supervisor automatic loop.
@@ -62,15 +63,25 @@ func (s *Supervisor) Run() error {
 	return s.loop()
 }
 
-// readUserInput reads multi-line input using huh.
+// readUserInput reads user input using huh.
 func (s *Supervisor) readUserInput() (string, error) {
 	var input string
 
+	// Create a minimal theme with no borders
+	theme := huh.ThemeCharm()
+	theme.Group.Base = lipgloss.NewStyle()
+	theme.Group.Title = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
+	theme.Blurred.Base = lipgloss.NewStyle()
+	theme.Focused.Base = lipgloss.NewStyle()
+
 	inputField := huh.NewInput().
-		Title(">").
+		Title("> ").
 		Value(&input)
 
-	err := huh.Run(inputField)
+	err := huh.NewForm(
+		huh.NewGroup(inputField),
+	).WithTheme(theme).Run()
+
 	if err != nil {
 		if err == huh.ErrUserAborted {
 			return "", fmt.Errorf("input cancelled")
@@ -85,7 +96,6 @@ func (s *Supervisor) readUserInput() (string, error) {
 
 	// Echo the input back
 	fmt.Printf("> %s\n\n", input)
-
 	return input, nil
 }
 
