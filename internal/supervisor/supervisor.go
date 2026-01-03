@@ -68,18 +68,24 @@ func (s *Supervisor) readUserInput() (string, error) {
 
 	var input string
 	inputField := huh.NewInput().
-		Title("").
+		Title(">").
 		Placeholder("").
 		Value(&input).
-		CharLimit(-1) // No limit
+		CharLimit(-1)
 
-	err := huh.NewForm(huh.NewGroup(inputField)).Run()
+	err := huh.NewForm(
+		huh.NewGroup(inputField).WithHide(true),
+	).Run()
+
 	if err != nil {
 		if err == huh.ErrUserAborted {
 			return "", fmt.Errorf("input cancelled")
 		}
 		return "", err
 	}
+
+	// Echo the input back to keep it visible
+	fmt.Printf("> %s\n\n", input)
 
 	input = strings.TrimSpace(input)
 	if input == "" {
