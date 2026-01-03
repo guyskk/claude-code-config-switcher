@@ -24,11 +24,10 @@ var BuildTime = "unknown"
 
 // Command represents a parsed CLI command.
 type Command struct {
-	Version    bool
-	Help       bool
-	Provider   string
+	Version bool
+	Help    bool
+	Provider string
 	ClaudeArgs []string
-	Supervisor bool
 
 	// Validate command options
 	Validate     bool
@@ -45,6 +44,8 @@ type ValidateCommand struct {
 }
 
 // Parse parses command-line arguments.
+// Only recognizes --help, --version, and the first argument as provider name.
+// All other arguments are passed through to Claude.
 func Parse(args []string) *Command {
 	cmd := &Command{}
 
@@ -63,10 +64,7 @@ func Parse(args []string) *Command {
 			cmd.Help = true
 			return cmd
 		}
-		if arg == "--supervisor" {
-			cmd.Supervisor = true
-		}
-		// First non-flag argument might be a provider name or validate command
+		// First non-flag argument is provider name or validate command
 		if !strings.HasPrefix(arg, "-") {
 			if arg == "validate" {
 				cmd.Validate = true
@@ -76,7 +74,7 @@ func Parse(args []string) *Command {
 			// First non-flag argument is the provider name
 			if cmd.Provider == "" {
 				cmd.Provider = arg
-				// Remaining args after provider are Claude args
+				// Everything after provider is passed to Claude
 				if i+1 < len(args) {
 					cmd.ClaudeArgs = args[i+1:]
 				}
@@ -85,7 +83,7 @@ func Parse(args []string) *Command {
 		}
 	}
 
-	// No provider argument - use current provider
+	// No provider specified - use current provider
 	return cmd
 }
 
@@ -109,7 +107,6 @@ func parseValidateArgs(args []string) *ValidateCommand {
 func ShowHelp(cfg *config.Config, cfgErr error) {
 	help := `Usage: ccc [provider] [args...]
        ccc validate [provider] [--all]
-       ccc --supervisor [provider] [args...]
 
 Claude Code Configuration Switcher
 
@@ -119,18 +116,23 @@ Commands:
   ccc validate     Validate the current provider configuration
   ccc validate <provider>   Validate a specific provider configuration
   ccc validate --all        Validate all provider configurations
-  ccc --supervisor         Enable Supervisor mode (Agent-Supervisor automatic loop)
-  ccc --supervisor <provider>   Switch to provider and enable Supervisor mode
   ccc --help       Show this help message
   ccc --version    Show version information
 
 Environment Variables:
   CCC_CONFIG_DIR     Override the configuration directory (default: ~/.claude/)
+  CCC_SUPERVISOR     Enable Supervisor mode (set to "1" to enable)
 
 Supervisor Mode:
-  When enabled, ccc automatically runs a Supervisor check after each Agent stop.
-  The Supervisor reviews the work quality and provides feedback if incomplete.
-  Creates an action-feedback loop until the Supervisor confirms task completion.
+  When CCC_SUPERVISOR=1 is set, ccc automatically runs a Supervisor check
+  after each Agent stop. The Supervisor reviews the work quality and provides
+  feedback if incomplete. Creates an action-feedback loop until the Supervisor
+  confirms task completion.
+
+  Example:
+    export CCC_SUPERVISOR=1
+    ccc glm --debug
+
   Requires a SUPERVISOR.md file in ~/.claude/SUPERVISOR.md.
 `
 	fmt.Print(help)
@@ -232,8 +234,11 @@ func Run(cmd *Command) error {
 		return fmt.Errorf("no providers configured")
 	}
 
-	// Check if supervisor mode is enabled
-	if cmd.Supervisor {
+	// Check if supervisor mode is enabled via environment variable
+	supervisorEnabled := os.Getenv("CCC_SUPERVISOR") == "1"
+
+	// Run in supervisor or normal mode
+	if supervisorEnabled {
 		return runSupervisor(cfg, providerName, cmd.ClaudeArgs)
 	}
 
