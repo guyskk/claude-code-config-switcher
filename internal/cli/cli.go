@@ -67,19 +67,25 @@ func Parse(args []string) *Command {
 			cmd.Supervisor = true
 		}
 		// First non-flag argument might be a provider name or validate command
-		if i == 0 && !strings.HasPrefix(arg, "-") {
+		if !strings.HasPrefix(arg, "-") {
 			if arg == "validate" {
 				cmd.Validate = true
-				cmd.ValidateOpts = parseValidateArgs(args[1:])
+				cmd.ValidateOpts = parseValidateArgs(args[i+1:])
 				return cmd
 			}
-			cmd.Provider = arg
-			cmd.ClaudeArgs = args[1:]
-			return cmd
+			// First non-flag argument is the provider name
+			if cmd.Provider == "" {
+				cmd.Provider = arg
+				// Remaining args after provider are Claude args
+				if i+1 < len(args) {
+					cmd.ClaudeArgs = args[i+1:]
+				}
+				return cmd
+			}
 		}
 	}
 
-	// No arguments - use current provider
+	// No provider argument - use current provider
 	return cmd
 }
 
