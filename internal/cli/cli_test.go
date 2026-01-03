@@ -80,6 +80,18 @@ func TestParse(t *testing.T) {
 			wantClaudeArgs: []string{},
 		},
 		{
+			name:           "flags only - all passed to claude",
+			args:           []string{"--debug", "--verbose"},
+			wantProvider:   "",
+			wantClaudeArgs: []string{"--debug", "--verbose"},
+		},
+		{
+			name:           "single flag - passed to claude",
+			args:           []string{"--debug"},
+			wantProvider:   "",
+			wantClaudeArgs: []string{"--debug"},
+		},
+		{
 			name:         "validate command",
 			args:         []string{"validate"},
 			wantValidate: true,

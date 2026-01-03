@@ -84,6 +84,8 @@ func Parse(args []string) *Command {
 	}
 
 	// No provider specified - use current provider
+	// All arguments are passed to Claude (e.g., "ccc --debug" passes --debug to claude)
+	cmd.ClaudeArgs = args
 	return cmd
 }
 
