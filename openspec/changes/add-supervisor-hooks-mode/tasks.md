@@ -73,7 +73,7 @@
 ### Phase 5: 文档和清理
 
 #### 10. 更新文档
-- [ ] 更新 README.md 添加 supervisor mode 说明
+- [x] 更新 README.md 添加 supervisor mode 说明
 - [x] 更新 help 信息
 
 #### 11. 清理旧代码
