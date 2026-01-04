@@ -30,11 +30,9 @@ type HookOutput struct {
 // RunSupervisorHook executes the supervisor-hook subcommand.
 func RunSupervisorHook(args []string) error {
 	// Check if this is a Supervisor's hook call (to avoid infinite loop)
-	// When CCC_SUPERVISOR_HOOK=1 is set, return fixed JSON to allow stop
+	// When CCC_SUPERVISOR_HOOK=1 is set, allow stop by outputting nothing
 	if os.Getenv("CCC_SUPERVISOR_HOOK") == "1" {
-		output := HookOutput{Decision: "", Reason: ""}
-		outputJSON, _ := json.Marshal(output)
-		fmt.Println(string(outputJSON))
+		// Output nothing to allow stop (decision undefined/null)
 		return nil
 	}
 
@@ -136,7 +134,7 @@ func RunSupervisorHook(args []string) error {
 	jsonSchema := `{"type":"object","properties":{"completed":{"type":"boolean"},"feedback":{"type":"string"}},"required":["completed","feedback"]}`
 
 	// Build user prompt: supervisor prompt + specific instruction
-	supervisorUserPrompt := supervisorPrompt + "\n\n" + "请检查上面的对话，评估任务是否已完成。如果完成，返回 completed=true；如果未完成，返回 completed=false 并在 feedback 中说明需要继续做什么。"
+	supervisorUserPrompt := supervisorPrompt + "\n\n" + "仔细回顾用户需求和方案规划，充分阅读所有的改动以及相关文档/代码等，严格检查评估当前任务的完成情况。如果确实完成了任务，返回 completed=true；如果未完成，返回 completed=false 并在 feedback 中详细具体说明需要继续做什么。"
 
 	// Build claude command using --fork-session (not --print)
 	// Note: NOT using --system-prompt - supervisor prompt is part of user prompt
