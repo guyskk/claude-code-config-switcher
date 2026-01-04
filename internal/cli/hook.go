@@ -28,20 +28,20 @@ type HookOutput struct {
 
 // RunSupervisorHook executes the supervisor-hook subcommand.
 func RunSupervisorHook(args []string) error {
+	// Check if this is a Supervisor's hook call (to avoid infinite loop)
+	// When CCC_SUPERVISOR_HOOK=1 is set, skip hook execution and allow stop
+	if os.Getenv("CCC_SUPERVISOR_HOOK") == "1" {
+		fmt.Fprintf(os.Stderr, "[ccc supervisor-hook] Skipping (CCC_SUPERVISOR_HOOK=1), allowing stop\n")
+		return nil
+	}
+
 	// Parse arguments
-	settingsPath := ""
 	stateDir := ""
 
 	for i, arg := range args {
-		if arg == "--settings" && i+1 < len(args) {
-			settingsPath = args[i+1]
-		} else if arg == "--state-dir" && i+1 < len(args) {
+		if arg == "--state-dir" && i+1 < len(args) {
 			stateDir = args[i+1]
 		}
-	}
-
-	if settingsPath == "" {
-		return fmt.Errorf("--settings parameter is required")
 	}
 
 	// Default state dir
@@ -66,14 +66,12 @@ func RunSupervisorHook(args []string) error {
 		timestamp := time.Now().Format("2006-01-02T15:04:05.000Z")
 		fmt.Fprintf(logFile, "[%s] supervisor-hook invoked\n", timestamp)
 		fmt.Fprintf(logFile, "[%s] args: %v\n", timestamp, args)
-		fmt.Fprintf(logFile, "[%s] settingsPath: %s\n", timestamp, settingsPath)
 		fmt.Fprintf(logFile, "[%s] stateDir: %s\n", timestamp, stateDir)
 		logFile.Sync()
 	}
 
 	// Also print to stderr for immediate visibility
 	fmt.Fprintf(os.Stderr, "[ccc supervisor-hook] Called at %s\n", time.Now().Format("2006-01-02 15:04:05"))
-	fmt.Fprintf(os.Stderr, "[ccc supervisor-hook] settingsPath: %s\n", settingsPath)
 	fmt.Fprintf(os.Stderr, "[ccc supervisor-hook] stateDir: %s\n", stateDir)
 	fmt.Fprintf(os.Stderr, "[ccc supervisor-hook] logPath: %s\n", logPath)
 
@@ -158,7 +156,6 @@ func RunSupervisorHook(args []string) error {
 	// Use --print to get output without entering interactive mode
 	args2 := []string{
 		"claude",
-		"--settings", settingsPath,
 		"--print",
 		"--resume", input.SessionID,
 		"--verbose",
@@ -168,16 +165,17 @@ func RunSupervisorHook(args []string) error {
 	}
 
 	// Log the command being executed
-	fmt.Fprintf(os.Stderr, "[ccc supervisor-hook] Executing: claude --settings %s --print --resume %s --output-format stream-json --json-schema <schema> --system-prompt <prompt>\n", settingsPath, input.SessionID)
+	fmt.Fprintf(os.Stderr, "[ccc supervisor-hook] Executing: claude --print --resume %s --output-format stream-json --json-schema <schema> --system-prompt <prompt>\n", input.SessionID)
 	if logFile != nil {
 		timestamp := time.Now().Format("2006-01-02T15:04:05.000Z")
 		fmt.Fprintf(logFile, "[%s] Executing claude command with %d args\n", timestamp, len(args2))
-		fmt.Fprintf(logFile, "[%s] Fork session: %s\n", timestamp, input.SessionID)
+		fmt.Fprintf(logFile, "[%s] Resume session: %s\n", timestamp, input.SessionID)
 		logFile.Sync()
 	}
 
-	// Execute command
+	// Execute command with CCC_SUPERVISOR_HOOK=1 to prevent infinite loop
 	cmd := exec.Command(args2[0], args2[1:]...)
+	cmd.Env = append(os.Environ(), "CCC_SUPERVISOR_HOOK=1")
 
 	// Capture stdout for parsing
 	stdout, err := cmd.StdoutPipe()

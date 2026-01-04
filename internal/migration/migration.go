@@ -21,7 +21,7 @@ var GetUserInputFunc = func(prompt string) (string, error) {
 
 // CheckExisting checks if ~/.claude/settings.json exists.
 func CheckExisting() bool {
-	settingsPath := config.GetSettingsPath("")
+	settingsPath := config.GetSettingsPath()
 	_, err := os.Stat(settingsPath)
 	return err == nil
 }
@@ -29,7 +29,7 @@ func CheckExisting() bool {
 // PromptUser prompts the user to confirm migration from existing settings.
 func PromptUser() bool {
 	cccPath := config.GetConfigPath()
-	settingsPath := config.GetSettingsPath("")
+	settingsPath := config.GetSettingsPath()
 
 	fmt.Printf("ccc configuration not found: %s\n", cccPath)
 	fmt.Printf("Found existing Claude configuration: %s\n", settingsPath)
@@ -46,7 +46,7 @@ func PromptUser() bool {
 
 // MigrateFromSettings creates a new ccc.json from existing settings.json.
 func MigrateFromSettings() error {
-	settingsPath := config.GetSettingsPath("")
+	settingsPath := config.GetSettingsPath()
 
 	// Read existing settings.json
 	data, err := os.ReadFile(settingsPath)

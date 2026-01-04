@@ -29,8 +29,8 @@ func Switch(cfg *config.Config, providerName string) (map[string]interface{}, er
 	// Start with the base settings template
 	mergedSettings := config.DeepMerge(cfg.Settings, providerSettings)
 
-	// Save the merged settings to settings-{provider}.json
-	if err := config.SaveSettings(mergedSettings, providerName); err != nil {
+	// Save the merged settings to settings.json
+	if err := config.SaveSettings(mergedSettings); err != nil {
 		return nil, fmt.Errorf("failed to save settings: %w", err)
 	}
 
@@ -152,18 +152,16 @@ func GetModel(settings map[string]interface{}) string {
 }
 
 // SwitchWithHook switches to the specified provider and adds Stop hook configuration.
-// It generates two settings files:
-// - settings-{provider}.json (with Stop hook, for Claude)
-// - settings-{provider}-supervisor.json (without hook, for Supervisor)
-func SwitchWithHook(cfg *config.Config, providerName string) (settingsPath string, supervisorSettingsPath string, err error) {
+// It generates settings.json with Stop hook for Supervisor mode.
+func SwitchWithHook(cfg *config.Config, providerName string) error {
 	if cfg == nil {
-		return "", "", fmt.Errorf("config is nil")
+		return fmt.Errorf("config is nil")
 	}
 
 	// Check if provider exists
 	providerSettings, exists := cfg.Providers[providerName]
 	if !exists {
-		return "", "", fmt.Errorf("provider '%s' not found in configuration", providerName)
+		return fmt.Errorf("provider '%s' not found in configuration", providerName)
 	}
 
 	// Create the merged settings
@@ -172,17 +170,12 @@ func SwitchWithHook(cfg *config.Config, providerName string) (settingsPath strin
 	// Get ccc absolute path for hook command
 	cccPath, err := os.Executable()
 	if err != nil {
-		return "", "", fmt.Errorf("failed to get ccc executable path: %w", err)
+		return fmt.Errorf("failed to get ccc executable path: %w", err)
 	}
-
-	// Determine settings paths
-	settingsPath = config.GetSettingsPath(providerName)
-	supervisorSettingsPath = config.GetSupervisorSettingsPath(providerName)
 
 	// Build hook command
 	stateDir := filepath.Join(config.GetDir(), "ccc")
-	hookCommand := fmt.Sprintf("%s supervisor-hook --settings %s --state-dir %s",
-		cccPath, supervisorSettingsPath, stateDir)
+	hookCommand := fmt.Sprintf("%s supervisor-hook --state-dir %s", cccPath, stateDir)
 
 	// Add Stop hook to merged settings
 	settingsWithHook := make(map[string]interface{})
@@ -209,38 +202,21 @@ func SwitchWithHook(cfg *config.Config, providerName string) (settingsPath strin
 	}
 	settingsWithHook["hooks"] = hooks
 
-	// Save settings with hook to settings-{provider}.json
+	// Save settings with hook to settings.json
+	settingsPath := config.GetSettingsPath()
 	settingsData, err := json.MarshalIndent(settingsWithHook, "", "  ")
 	if err != nil {
-		return "", "", fmt.Errorf("failed to marshal settings: %w", err)
+		return fmt.Errorf("failed to marshal settings: %w", err)
 	}
 	if err := os.WriteFile(settingsPath, settingsData, 0644); err != nil {
-		return "", "", fmt.Errorf("failed to write settings: %w", err)
-	}
-
-	// Save supervisor settings (without hook) to settings-{provider}-supervisor.json
-	supervisorData, err := json.MarshalIndent(mergedSettings, "", "  ")
-	if err != nil {
-		return "", "", fmt.Errorf("failed to marshal supervisor settings: %w", err)
-	}
-	if err := os.WriteFile(supervisorSettingsPath, supervisorData, 0644); err != nil {
-		return "", "", fmt.Errorf("failed to write supervisor settings: %w", err)
-	}
-
-	// Clear env field in settings.json to prevent configuration pollution
-	cleared, err := config.ClearEnvInSettings()
-	if err != nil {
-		return "", "", fmt.Errorf("failed to clear env in settings.json: %w", err)
-	}
-	if cleared {
-		fmt.Println("Cleared env field in settings.json to prevent configuration pollution")
+		return fmt.Errorf("failed to write settings: %w", err)
 	}
 
 	// Update current_provider in ccc.json
 	cfg.CurrentProvider = providerName
 	if err := config.Save(cfg); err != nil {
-		return "", "", fmt.Errorf("failed to update current provider: %w", err)
+		return fmt.Errorf("failed to update current provider: %w", err)
 	}
 
-	return settingsPath, supervisorSettingsPath, nil
+	return nil
 }

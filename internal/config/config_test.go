@@ -90,33 +90,13 @@ func TestGetConfigPath(t *testing.T) {
 }
 
 func TestGetSettingsPath(t *testing.T) {
-	tests := []struct {
-		name         string
-		providerName string
-		want         string
-	}{
-		{
-			name:         "with provider name",
-			providerName: "kimi",
-			want:         "settings-kimi.json",
-		},
-		{
-			name:         "empty provider name",
-			providerName: "",
-			want:         "settings.json",
-		},
-	}
+	_, cleanup := setupTestDir(t)
+	defer cleanup()
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, cleanup := setupTestDir(t)
-			defer cleanup()
-
-			path := GetSettingsPath(tt.providerName)
-			if !strings.Contains(path, tt.want) {
-				t.Errorf("GetSettingsPath(%q) should contain %q, got %s", tt.providerName, tt.want, path)
-			}
-		})
+	path := GetSettingsPath()
+	expectedPath := filepath.Join(GetDir(), "settings.json")
+	if path != expectedPath {
+		t.Errorf("GetSettingsPath() = %s, want %s", path, expectedPath)
 	}
 }
 
@@ -273,15 +253,15 @@ func TestSaveSettings(t *testing.T) {
 		},
 	}
 
-	err := SaveSettings(settings, "kimi")
+	err := SaveSettings(settings)
 	if err != nil {
 		t.Fatalf("SaveSettings() error = %v", err)
 	}
 
 	// Verify file exists
-	settingsPath := GetSettingsPath("kimi")
+	settingsPath := GetSettingsPath()
 	if _, err := os.Stat(settingsPath); os.IsNotExist(err) {
-		t.Fatal("SaveSettings() should create settings-kimi.json")
+		t.Fatal("SaveSettings() should create settings.json")
 	}
 
 	// Verify content

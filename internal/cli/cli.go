@@ -24,9 +24,9 @@ var BuildTime = "unknown"
 
 // Command represents a parsed CLI command.
 type Command struct {
-	Version bool
-	Help    bool
-	Provider string
+	Version    bool
+	Help       bool
+	Provider   string
 	ClaudeArgs []string
 
 	// Validate command options
@@ -252,7 +252,7 @@ func Run(cmd *Command) error {
 	}
 
 	// Run claude with the settings file
-	if err := runClaude(cfg, providerName, mergedSettings, cmd.ClaudeArgs); err != nil {
+	if err := runClaude(cfg, mergedSettings, cmd.ClaudeArgs); err != nil {
 		return fmt.Errorf("error running claude: %w", err)
 	}
 
@@ -314,9 +314,9 @@ func determineProvider(cmd *Command, cfg *config.Config) string {
 	return ""
 }
 
-// runClaude executes the claude command with the settings file.
+// runClaude executes the claude command.
 // This replaces the current process with claude using syscall.Exec.
-func runClaude(cfg *config.Config, providerName string, settings map[string]interface{}, args []string) error {
+func runClaude(cfg *config.Config, settings map[string]interface{}, args []string) error {
 	// Find claude executable path
 	claudePath, err := exec.LookPath("claude")
 	if err != nil {
@@ -324,8 +324,7 @@ func runClaude(cfg *config.Config, providerName string, settings map[string]inte
 	}
 
 	// Build arguments (argv[0] must be the program name)
-	settingsPath := config.GetSettingsPath(providerName)
-	execArgs := []string{"claude", "--settings", settingsPath}
+	execArgs := []string{"claude"}
 	if len(cfg.ClaudeArgs) > 0 {
 		execArgs = append(execArgs, cfg.ClaudeArgs...)
 	}

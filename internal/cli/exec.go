@@ -17,11 +17,10 @@ func executeProcess(path string, args []string, env []string) error {
 }
 
 // runSupervisor runs claude in supervisor mode.
-// It generates settings files with Stop hook configuration and executes claude.
+// It generates settings.json with Stop hook configuration and executes claude.
 func runSupervisor(cfg *config.Config, providerName string, claudeArgs []string) error {
 	// Generate settings with hook
-	settingsPath, _, err := provider.SwitchWithHook(cfg, providerName)
-	if err != nil {
+	if err := provider.SwitchWithHook(cfg, providerName); err != nil {
 		return fmt.Errorf("error generating settings with hook: %w", err)
 	}
 
@@ -36,7 +35,7 @@ func runSupervisor(cfg *config.Config, providerName string, claudeArgs []string)
 	}
 
 	// Build arguments (argv[0] must be the program name)
-	execArgs := []string{"claude", "--settings", settingsPath}
+	execArgs := []string{"claude"}
 	if len(cfg.ClaudeArgs) > 0 {
 		execArgs = append(execArgs, cfg.ClaudeArgs...)
 	}

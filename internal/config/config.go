@@ -42,22 +42,9 @@ func GetConfigPath() string {
 	return filepath.Join(GetDir(), "ccc.json")
 }
 
-// GetSettingsPath returns the path to settings-{provider}.json.
-// If providerName is empty, returns the path to settings.json.
-func GetSettingsPath(providerName string) string {
-	if providerName == "" {
-		return filepath.Join(GetDir(), "settings.json")
-	}
-	return filepath.Join(GetDir(), fmt.Sprintf("settings-%s.json", providerName))
-}
-
-// GetSupervisorSettingsPath returns the path to settings-{provider}-supervisor.json.
-// This is used for Supervisor mode, which needs a settings file without hooks.
-func GetSupervisorSettingsPath(providerName string) string {
-	if providerName == "" {
-		return filepath.Join(GetDir(), "settings-supervisor.json")
-	}
-	return filepath.Join(GetDir(), fmt.Sprintf("settings-%s-supervisor.json", providerName))
+// GetSettingsPath returns the path to settings.json.
+func GetSettingsPath() string {
+	return filepath.Join(GetDir(), "settings.json")
 }
 
 // Load reads and parses the ccc.json configuration file.
@@ -98,9 +85,9 @@ func Save(cfg *Config) error {
 	return nil
 }
 
-// SaveSettings writes the settings to a provider-specific settings file.
-func SaveSettings(settings map[string]interface{}, providerName string) error {
-	settingsPath := GetSettingsPath(providerName)
+// SaveSettings writes the settings to settings.json.
+func SaveSettings(settings map[string]interface{}) error {
+	settingsPath := GetSettingsPath()
 
 	// Ensure settings directory exists
 	settingsDir := filepath.Dir(settingsPath)
