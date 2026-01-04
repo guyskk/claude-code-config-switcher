@@ -12,8 +12,7 @@ import (
 )
 
 // Switch switches to the specified provider by merging configurations.
-// It saves the merged settings to settings-{provider}.json, clears env in settings.json,
-// and updates the current provider in ccc.json.
+// It saves the merged settings to settings.json and updates the current provider in ccc.json.
 func Switch(cfg *config.Config, providerName string) (map[string]interface{}, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("config is nil")
@@ -32,15 +31,6 @@ func Switch(cfg *config.Config, providerName string) (map[string]interface{}, er
 	// Save the merged settings to settings.json
 	if err := config.SaveSettings(mergedSettings); err != nil {
 		return nil, fmt.Errorf("failed to save settings: %w", err)
-	}
-
-	// Clear env field in settings.json to prevent configuration pollution
-	cleared, err := config.ClearEnvInSettings()
-	if err != nil {
-		return nil, fmt.Errorf("failed to clear env in settings.json: %w", err)
-	}
-	if cleared {
-		fmt.Println("Cleared env field in settings.json to prevent configuration pollution")
 	}
 
 	// Update current_provider in ccc.json
