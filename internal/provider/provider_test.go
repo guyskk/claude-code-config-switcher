@@ -93,7 +93,7 @@ func TestSwitch(t *testing.T) {
 		}
 
 		// Verify settings file was created
-		settingsPath := config.GetSettingsPath("glm")
+		settingsPath := config.GetSettingsPath()
 		if _, err := os.Stat(settingsPath); os.IsNotExist(err) {
 			t.Errorf("Settings file should exist at %s", settingsPath)
 		}

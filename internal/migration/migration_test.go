@@ -110,7 +110,7 @@ func TestCheckExisting(t *testing.T) {
 
 			// Create settings.json if needed
 			if tt.setupSettings {
-				settingsPath := config.GetSettingsPath("")
+				settingsPath := config.GetSettingsPath()
 				writeJSONFile(t, settingsPath, map[string]interface{}{
 					"permissions": map[string]interface{}{},
 				})
@@ -324,7 +324,7 @@ func TestMigrateFromSettings(t *testing.T) {
 			defer cleanup()
 
 			// Create settings.json
-			settingsPath := config.GetSettingsPath("")
+			settingsPath := config.GetSettingsPath()
 			writeJSONFile(t, settingsPath, tt.settingsData)
 
 			// Run migration
@@ -373,7 +373,7 @@ func TestMigrateFromSettingsErrors(t *testing.T) {
 		defer cleanup()
 
 		// Create invalid JSON file
-		settingsPath := config.GetSettingsPath("")
+		settingsPath := config.GetSettingsPath()
 		if err := os.WriteFile(settingsPath, []byte("{invalid json}"), 0644); err != nil {
 			t.Fatalf("Failed to write invalid JSON: %v", err)
 		}
@@ -400,7 +400,7 @@ func TestMigrationFlowAccept(t *testing.T) {
 	}
 
 	// Create settings.json
-	settingsPath := config.GetSettingsPath("")
+	settingsPath := config.GetSettingsPath()
 	originalSettings := map[string]interface{}{
 		"permissions": map[string]interface{}{
 			"allow": []interface{}{"*"},
@@ -451,7 +451,7 @@ func TestMigrationFlowReject(t *testing.T) {
 	}
 
 	// Create settings.json
-	settingsPath := config.GetSettingsPath("")
+	settingsPath := config.GetSettingsPath()
 	writeJSONFile(t, settingsPath, map[string]interface{}{
 		"permissions": map[string]interface{}{},
 	})
@@ -478,7 +478,7 @@ func TestMigrationFlowErrors(t *testing.T) {
 		defer cleanup()
 
 		// Create invalid JSON
-		settingsPath := config.GetSettingsPath("")
+		settingsPath := config.GetSettingsPath()
 		if err := os.WriteFile(settingsPath, []byte("not json"), 0644); err != nil {
 			t.Fatalf("Failed to write file: %v", err)
 		}

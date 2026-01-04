@@ -4,7 +4,6 @@ package cli
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"strings"
 
 	"github.com/guyskk/ccc/internal/config"
@@ -32,6 +31,9 @@ type Command struct {
 	// Validate command options
 	Validate     bool
 	ValidateOpts *ValidateCommand
+
+	// supervisor-hook subcommand
+	HookSubcommand bool
 }
 
 // ValidateCommand represents options for the validate command.
@@ -41,8 +43,16 @@ type ValidateCommand struct {
 }
 
 // Parse parses command-line arguments.
+// Only recognizes --help, --version, and the first argument as provider name.
+// All other arguments are passed through to Claude.
 func Parse(args []string) *Command {
 	cmd := &Command{}
+
+	// Check for supervisor-hook subcommand first
+	if len(args) > 0 && args[0] == "supervisor-hook" {
+		cmd.HookSubcommand = true
+		return cmd
+	}
 
 	for i, arg := range args {
 		if arg == "--version" || arg == "-v" {
@@ -53,20 +63,28 @@ func Parse(args []string) *Command {
 			cmd.Help = true
 			return cmd
 		}
-		// First non-flag argument might be a provider name or validate command
-		if i == 0 && !strings.HasPrefix(arg, "-") {
+		// First non-flag argument is provider name or validate command
+		if !strings.HasPrefix(arg, "-") {
 			if arg == "validate" {
 				cmd.Validate = true
-				cmd.ValidateOpts = parseValidateArgs(args[1:])
+				cmd.ValidateOpts = parseValidateArgs(args[i+1:])
 				return cmd
 			}
-			cmd.Provider = arg
-			cmd.ClaudeArgs = args[1:]
-			return cmd
+			// First non-flag argument is the provider name
+			if cmd.Provider == "" {
+				cmd.Provider = arg
+				// Everything after provider is passed to Claude
+				if i+1 < len(args) {
+					cmd.ClaudeArgs = args[i+1:]
+				}
+				return cmd
+			}
 		}
 	}
 
-	// No arguments - use current provider
+	// No provider specified - use current provider
+	// All arguments are passed to Claude (e.g., "ccc --debug" passes --debug to claude)
+	cmd.ClaudeArgs = args
 	return cmd
 }
 
@@ -104,6 +122,19 @@ Commands:
 
 Environment Variables:
   CCC_CONFIG_DIR     Override the configuration directory (default: ~/.claude/)
+  CCC_SUPERVISOR     Enable Supervisor mode (set to "1" to enable)
+
+Supervisor Mode:
+  When CCC_SUPERVISOR=1 is set, ccc automatically runs a Supervisor check
+  after each Agent stop. The Supervisor reviews the work quality and provides
+  feedback if incomplete. Creates an action-feedback loop until the Supervisor
+  confirms task completion.
+
+  Example:
+    export CCC_SUPERVISOR=1
+    ccc glm --debug
+
+  Requires a SUPERVISOR.md file in ~/.claude/SUPERVISOR.md.
 `
 	fmt.Print(help)
 
@@ -137,6 +168,11 @@ func ShowVersion() {
 
 // Run executes the CLI command.
 func Run(cmd *Command) error {
+	// Handle supervisor-hook subcommand
+	if cmd.HookSubcommand {
+		return RunSupervisorHook(os.Args[2:])
+	}
+
 	// Handle --version
 	if cmd.Version {
 		ShowVersion()
@@ -199,19 +235,11 @@ func Run(cmd *Command) error {
 		return fmt.Errorf("no providers configured")
 	}
 
-	// Switch to the provider
-	fmt.Printf("Launching with provider: %s\n", providerName)
-	mergedSettings, err := provider.Switch(cfg, providerName)
-	if err != nil {
-		return fmt.Errorf("error switching provider: %w", err)
-	}
+	// Check if supervisor mode is enabled via environment variable
+	supervisorEnabled := os.Getenv("CCC_SUPERVISOR") == "1"
 
-	// Run claude with the settings file
-	if err := runClaude(cfg, providerName, mergedSettings, cmd.ClaudeArgs); err != nil {
-		return fmt.Errorf("error running claude: %w", err)
-	}
-
-	return nil
+	// Run claude with the provider (handles both normal and supervisor mode)
+	return runClaude(cfg, providerName, cmd.ClaudeArgs, supervisorEnabled)
 }
 
 // runValidate executes the validate command.
@@ -267,31 +295,6 @@ func determineProvider(cmd *Command, cfg *config.Config) string {
 	}
 
 	return ""
-}
-
-// runClaude executes the claude command with the settings file.
-// This replaces the current process with claude using syscall.Exec.
-func runClaude(cfg *config.Config, providerName string, settings map[string]interface{}, args []string) error {
-	// Find claude executable path
-	claudePath, err := exec.LookPath("claude")
-	if err != nil {
-		return fmt.Errorf("claude not found in PATH: %w", err)
-	}
-
-	// Build arguments (argv[0] must be the program name)
-	settingsPath := config.GetSettingsPath(providerName)
-	execArgs := []string{"claude", "--settings", settingsPath}
-	if len(cfg.ClaudeArgs) > 0 {
-		execArgs = append(execArgs, cfg.ClaudeArgs...)
-	}
-	execArgs = append(execArgs, args...)
-
-	// Build environment variables
-	authToken := provider.GetAuthToken(settings)
-	env := append(os.Environ(), fmt.Sprintf("ANTHROPIC_AUTH_TOKEN=%s", authToken))
-
-	// Execute the process (replaces current process, does not return on success)
-	return executeProcess(claudePath, execArgs, env)
 }
 
 // Execute is the main entry point for the CLI.
