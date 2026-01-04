@@ -200,4 +200,3 @@ func GetBaseURL(settings map[string]interface{}) string {
 func GetModel(settings map[string]interface{}) string {
 	return GetEnvString(settings, "ANTHROPIC_MODEL", "")
 }
-

@@ -634,4 +634,3 @@ func TestGetModel(t *testing.T) {
 func MarshalIndent(v interface{}, prefix, indent string) ([]byte, error) {
 	return json.MarshalIndent(v, prefix, indent)
 }
-
