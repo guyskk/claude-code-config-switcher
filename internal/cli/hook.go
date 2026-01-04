@@ -161,6 +161,7 @@ func RunSupervisorHook(args []string) error {
 		"claude",
 		"--print",
 		"--resume", input.SessionID,
+		"--verbose", // Required for stream-json output format
 		"--output-format", "stream-json",
 		"--json-schema", jsonSchema,
 		"--system-prompt", supervisorPrompt,
