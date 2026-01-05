@@ -39,7 +39,7 @@ func RunSupervisorHook(args []string) error {
 		return nil
 	}
 
-	// Get state directory using supervisor.GetStateDir() which checks CCC_WORK_DIR
+	// Get state directory using supervisor.GetStateDir() which checks CCC_CONFIG_DIR (or CCC_WORK_DIR for backward compatibility)
 	stateDir, err := supervisor.GetStateDir()
 	if err != nil {
 		return fmt.Errorf("failed to get state directory: %w", err)
