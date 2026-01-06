@@ -58,7 +58,6 @@ func RunSupervisorHook(args []string) error {
 		return fmt.Errorf("session_id is required (from CCC_SESSION_ID env var or stdin)")
 	}
 
-	// Get state directory using supervisor.GetStateDir() which checks CCC_WORK_DIR
 	stateDir, err := supervisor.GetStateDir()
 	if err != nil {
 		return fmt.Errorf("failed to get state directory: %w", err)

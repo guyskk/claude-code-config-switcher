@@ -86,12 +86,12 @@ Supervisor Mode SHALL 生成包含 Stop hook 的单一 `settings.json` 文件。
 系统 SHALL 使用文件管理 session 状态。
 
 #### Scenario: 状态目录确定
-- **GIVEN** 环境变量 `CCC_WORK_DIR` 设置为 `/custom/path`
+- **GIVEN** 环境变量 `CCC_CONFIG_DIR` 设置为 `/custom/path`
 - **WHEN** 系统确定状态目录
 - **THEN** 状态目录应当为 `/custom/path/ccc`
 
 #### Scenario: 状态目录默认值
-- **GIVEN** 环境变量 `CCC_WORK_DIR` 未设置
+- **GIVEN** 环境变量 `CCC_CONFIG_DIR` 未设置
 - **WHEN** 系统确定状态目录
 - **THEN** 状态目录应当为 `~/.claude/ccc/`
 

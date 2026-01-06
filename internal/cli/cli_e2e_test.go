@@ -523,19 +523,41 @@ func TestE2E_HookSubcommand(t *testing.T) {
 
 	tmpDir := t.TempDir()
 
+	// Create test config directory
+	testConfigDir := filepath.Join(tmpDir, ".claude")
+	if err := os.MkdirAll(testConfigDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create test config (required by hook)
+	testConfig := filepath.Join(testConfigDir, "ccc.json")
+	configContent := `{
+		"settings": {"permissions": {"defaultMode": "acceptEdits"}},
+		"current_provider": "test1",
+		"providers": {
+			"test1": {"env": {"ANTHROPIC_AUTH_TOKEN": "test"}}
+		}
+	}`
+	if err := os.WriteFile(testConfig, []byte(configContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create ccc state directory
+	cccStateDir := filepath.Join(testConfigDir, "ccc")
+	if err := os.MkdirAll(cccStateDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
 	console, err := expect.NewConsole(expect.WithDefaultTimeout(5 * time.Second))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer console.Close()
 
-	stateDir := tmpDir
-	supervisorSettings := filepath.Join(tmpDir, "settings-test.json")
-
-	// Create dummy supervisor settings
-	os.WriteFile(supervisorSettings, []byte(`{}`), 0644)
-
-	cmd := exec.CommandContext(ctx, cccBinaryPath, "supervisor-hook", "--settings", supervisorSettings, "--state-dir", stateDir)
+	// supervisor-hook reads from stdin and writes to stdout/stderr
+	// No command-line arguments are supported
+	cmd := exec.CommandContext(ctx, cccBinaryPath, "supervisor-hook")
+	cmd.Env = append(os.Environ(), fmt.Sprintf("CCC_CONFIG_DIR=%s", testConfigDir))
 	cmd.Stdin = console.Tty()
 	cmd.Stdout = console.Tty()
 	cmd.Stderr = console.Tty()
@@ -566,7 +588,8 @@ func TestE2E_HookSubcommand(t *testing.T) {
 
 // TestE2E_HelpShowsProviders tests that help shows available providers
 func TestE2E_HelpShowsProviders(t *testing.T) {
-	t.Parallel()
+	// Don't run in parallel - PTY tests can have resource conflicts
+	// t.Parallel()
 
 	pm := &processManager{}
 	defer pm.cleanup()
