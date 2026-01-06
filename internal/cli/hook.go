@@ -39,6 +39,25 @@ func RunSupervisorHook(args []string) error {
 		return nil
 	}
 
+	// Get session ID: first from environment variable, then from stdin
+	sessionID := os.Getenv("CCC_SESSION_ID")
+	var input StopHookInput
+	stopHookActive := false
+
+	if sessionID == "" {
+		// Fallback: read from stdin
+		decoder := json.NewDecoder(os.Stdin)
+		if err := decoder.Decode(&input); err != nil {
+			return fmt.Errorf("failed to parse stdin JSON: %w", err)
+		}
+		sessionID = input.SessionID
+		stopHookActive = input.StopHookActive
+	}
+
+	if sessionID == "" {
+		return fmt.Errorf("session_id is required (from CCC_SESSION_ID env var or stdin)")
+	}
+
 	// Get state directory using supervisor.GetStateDir() which checks CCC_WORK_DIR
 	stateDir, err := supervisor.GetStateDir()
 	if err != nil {
@@ -50,19 +69,8 @@ func RunSupervisorHook(args []string) error {
 		return fmt.Errorf("failed to create state directory: %w", err)
 	}
 
-	// Read stdin JSON first to get session_id
-	var input StopHookInput
-	decoder := json.NewDecoder(os.Stdin)
-	if err := decoder.Decode(&input); err != nil {
-		return fmt.Errorf("failed to parse stdin JSON: %w", err)
-	}
-
-	if input.SessionID == "" {
-		return fmt.Errorf("session_id is required in input")
-	}
-
 	// Session-specific log file: supervisor-{session-id}.log
-	sessionLogFile := filepath.Join(stateDir, fmt.Sprintf("supervisor-%s.log", input.SessionID))
+	sessionLogFile := filepath.Join(stateDir, fmt.Sprintf("supervisor-%s.log", sessionID))
 	logFile, err := os.OpenFile(sessionLogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to open session log file: %w", err)
@@ -73,8 +81,8 @@ func RunSupervisorHook(args []string) error {
 	fmt.Fprintf(logFile, "\n%s\n", strings.Repeat("=", 70))
 	fmt.Fprintf(logFile, "[SUPERVISOR HOOK] 开始执行\n")
 	fmt.Fprintf(logFile, "%s\n", strings.Repeat("=", 70))
-	fmt.Fprintf(logFile, "[%s] Session ID: %s\n", timestamp, input.SessionID)
-	fmt.Fprintf(logFile, "[%s] Stop Hook Active: %v\n", timestamp, input.StopHookActive)
+	fmt.Fprintf(logFile, "[%s] Session ID: %s\n", timestamp, sessionID)
+	fmt.Fprintf(logFile, "[%s] Stop Hook Active: %v\n", timestamp, stopHookActive)
 	fmt.Fprintf(logFile, "[%s] Args: %v\n", timestamp, args)
 	logFile.Sync()
 
@@ -82,12 +90,12 @@ func RunSupervisorHook(args []string) error {
 	fmt.Fprintf(os.Stderr, "\n%s\n", strings.Repeat("=", 60))
 	fmt.Fprintf(os.Stderr, "[SUPERVISOR HOOK] 开始执行\n")
 	fmt.Fprintf(os.Stderr, "%s\n", strings.Repeat("=", 60))
-	fmt.Fprintf(os.Stderr, "Session ID: %s\n", input.SessionID)
-	fmt.Fprintf(os.Stderr, "Stop Hook Active: %v\n", input.StopHookActive)
+	fmt.Fprintf(os.Stderr, "Session ID: %s\n", sessionID)
+	fmt.Fprintf(os.Stderr, "Stop Hook Active: %v\n", stopHookActive)
 	fmt.Fprintf(os.Stderr, "日志: %s\n", sessionLogFile)
 
 	// Check iteration count limit
-	shouldContinue, count, err := supervisor.ShouldContinue(input.SessionID, supervisor.DefaultMaxIterations)
+	shouldContinue, count, err := supervisor.ShouldContinue(sessionID, supervisor.DefaultMaxIterations)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error checking state: %v\n", err)
 		// Continue anyway
@@ -102,7 +110,7 @@ func RunSupervisorHook(args []string) error {
 	}
 
 	// Increment count
-	newCount, err := supervisor.IncrementCount(input.SessionID)
+	newCount, err := supervisor.IncrementCount(sessionID)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: failed to increment count: %v\n", err)
 	} else {
@@ -130,7 +138,7 @@ func RunSupervisorHook(args []string) error {
 	args2 := []string{
 		"claude",
 		"--fork-session", // Create child session instead of --print
-		"--resume", input.SessionID,
+		"--resume", sessionID,
 		"--verbose", // Required for stream-json output format
 		"--output-format", "stream-json",
 		"--json-schema", jsonSchema,
@@ -145,7 +153,7 @@ func RunSupervisorHook(args []string) error {
 	fmt.Fprintf(logFile, "\n%s\n", strings.Repeat("-", 70))
 	fmt.Fprintf(logFile, "[SUPERVISOR] 执行审查\n")
 	fmt.Fprintf(logFile, "%s\n", strings.Repeat("-", 70))
-	fmt.Fprintf(logFile, "[%s] Command: claude --fork-session --resume %s\n", timestamp, input.SessionID)
+	fmt.Fprintf(logFile, "[%s] Command: claude --fork-session --resume %s\n", timestamp, sessionID)
 	fmt.Fprintf(logFile, "[%s] Args: %d\n", timestamp, len(args2))
 	logFile.Sync()
 
