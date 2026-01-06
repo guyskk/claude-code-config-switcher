@@ -89,6 +89,16 @@ func RunSupervisorHook(args []string) error {
 	fmt.Fprintf(logFile, "[%s] Session ID: %s\n", timestamp, sessionID)
 	fmt.Fprintf(logFile, "[%s] Stop Hook Active: %v\n", timestamp, stopHookActive)
 	fmt.Fprintf(logFile, "[%s] Args: %v\n", timestamp, args)
+
+	// Log input as formatted JSON
+	inputJSON, _ := json.MarshalIndent(struct {
+		SessionID      string `json:"session_id"`
+		StopHookActive bool   `json:"stop_hook_active"`
+	}{
+		SessionID:      sessionID,
+		StopHookActive: stopHookActive,
+	}, "", "  ")
+	fmt.Fprintf(logFile, "[%s] Input:\n%s\n\n", timestamp, string(inputJSON))
 	logFile.Sync()
 
 	// Output to stderr (visible in verbose mode with Ctrl+O)
@@ -131,6 +141,15 @@ func RunSupervisorHook(args []string) error {
 		fmt.Fprintf(os.Stderr, "Warning: failed to read supervisor prompt: %v\n", err)
 		supervisorPrompt = getDefaultSupervisorPrompt()
 	}
+
+	// Log the supervisor prompt
+	timestamp = time.Now().Format("2006-01-02T15:04:05.000Z")
+	fmt.Fprintf(logFile, "\n%s\n", strings.Repeat("-", 70))
+	fmt.Fprintf(logFile, "[SUPERVISOR PROMPT]\n")
+	fmt.Fprintf(logFile, "%s\n", strings.Repeat("-", 70))
+	fmt.Fprintf(logFile, "%s\n", supervisorPrompt)
+	fmt.Fprintf(logFile, "%s\n", strings.Repeat("-", 70))
+	logFile.Sync()
 
 	// Build claude command using --fork-session (not --print)
 	// Note: NOT using --system-prompt - supervisor prompt is part of user prompt
@@ -260,9 +279,9 @@ func RunSupervisorHook(args []string) error {
 		return nil
 	}
 
-	// Log the result
-	fmt.Fprintf(logFile, "[%s] completed: %v\n", timestamp, result.Completed)
-	fmt.Fprintf(logFile, "[%s] feedback: %s\n", timestamp, result.Feedback)
+	// Log the result as formatted JSON
+	resultJSON, _ := json.MarshalIndent(result, "", "  ")
+	fmt.Fprintf(logFile, "[%s] Result:\n%s\n\n", timestamp, string(resultJSON))
 	logFile.Sync()
 
 	if result.Completed {
@@ -282,7 +301,7 @@ func RunSupervisorHook(args []string) error {
 		Decision: "block",
 		Reason:   result.Feedback,
 	}
-	outputJSON, err := json.Marshal(output)
+	outputJSON, err := json.MarshalIndent(output, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal hook output: %w", err)
 	}
@@ -294,7 +313,7 @@ func RunSupervisorHook(args []string) error {
 	fmt.Fprintf(os.Stderr, "%s\n\n", strings.Repeat("=", 60))
 
 	fmt.Fprintf(logFile, "[%s] Blocking with feedback: %s\n", timestamp, result.Feedback)
-	fmt.Fprintf(logFile, "[%s] Output: %s\n", timestamp, string(outputJSON))
+	fmt.Fprintf(logFile, "[%s] Output:\n%s\n", timestamp, string(outputJSON))
 	logFile.Sync()
 
 	return nil
