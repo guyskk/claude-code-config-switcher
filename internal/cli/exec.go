@@ -49,6 +49,16 @@ func runClaude(cfg *config.Config, providerName string, claudeArgs []string, sup
 			fmt.Printf("[Supervisor Mode] 日志文件: %s\n", logPath)
 			fmt.Printf("提示: 按 Ctrl+O 切换到 verbose 模式查看 hook 执行状态\n")
 			fmt.Printf("提示: 在新窗口运行 'tail -f %s' 实时查看日志\n\n", logPath)
+
+			// Pre-create log directory and file so tail -f works immediately
+			if err := os.MkdirAll(stateDir, 0755); err == nil {
+				logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+				if err == nil {
+					fmt.Fprintf(logFile, "[SUPERVISOR] Session started: %s\n", sessionID)
+					fmt.Fprintf(logFile, "[SUPERVISOR] Waiting for Stop hook to trigger...\n\n")
+					logFile.Close()
+				}
+			}
 		}
 
 		// Get merged settings for auth token
