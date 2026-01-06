@@ -42,13 +42,9 @@ func GetConfigPath() string {
 	return filepath.Join(GetDir(), "ccc.json")
 }
 
-// GetSettingsPath returns the path to settings-{provider}.json.
-// If providerName is empty, returns the path to settings.json.
-func GetSettingsPath(providerName string) string {
-	if providerName == "" {
-		return filepath.Join(GetDir(), "settings.json")
-	}
-	return filepath.Join(GetDir(), fmt.Sprintf("settings-%s.json", providerName))
+// GetSettingsPath returns the path to settings.json.
+func GetSettingsPath() string {
+	return filepath.Join(GetDir(), "settings.json")
 }
 
 // Load reads and parses the ccc.json configuration file.
@@ -89,9 +85,9 @@ func Save(cfg *Config) error {
 	return nil
 }
 
-// SaveSettings writes the settings to a provider-specific settings file.
-func SaveSettings(settings map[string]interface{}, providerName string) error {
-	settingsPath := GetSettingsPath(providerName)
+// SaveSettings writes the settings to settings.json.
+func SaveSettings(settings map[string]interface{}) error {
+	settingsPath := GetSettingsPath()
 
 	// Ensure settings directory exists
 	settingsDir := filepath.Dir(settingsPath)
@@ -203,59 +199,4 @@ func GetBaseURL(settings map[string]interface{}) string {
 // Returns empty string if not set.
 func GetModel(settings map[string]interface{}) string {
 	return GetEnvString(settings, "ANTHROPIC_MODEL", "")
-}
-
-// GetSettingsJSONPath returns the path to ~/.claude/settings.json.
-func GetSettingsJSONPath() string {
-	return filepath.Join(GetDir(), "settings.json")
-}
-
-// ClearEnvInSettings clears the env field in ~/.claude/settings.json to prevent
-// configuration pollution. Returns true if settings.json was modified.
-func ClearEnvInSettings() (bool, error) {
-	settingsPath := GetSettingsJSONPath()
-
-	// Read settings.json if it exists
-	data, err := os.ReadFile(settingsPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			// settings.json doesn't exist, nothing to clear
-			return false, nil
-		}
-		return false, fmt.Errorf("failed to read settings.json: %w", err)
-	}
-
-	// Parse the settings
-	var settings map[string]interface{}
-	if err := json.Unmarshal(data, &settings); err != nil {
-		return false, fmt.Errorf("failed to parse settings.json: %w", err)
-	}
-
-	// Check if env field exists and is non-empty
-	envField, hasEnv := settings["env"]
-	if !hasEnv {
-		// No env field to clear
-		return false, nil
-	}
-
-	// Check if env is already empty
-	if envMap, ok := envField.(map[string]interface{}); ok && len(envMap) == 0 {
-		// env field exists but is already empty, no need to clear
-		return false, nil
-	}
-
-	// Clear the env field
-	settings["env"] = map[string]interface{}{}
-
-	// Write back to file
-	data, err = json.MarshalIndent(settings, "", "  ")
-	if err != nil {
-		return false, fmt.Errorf("failed to marshal settings: %w", err)
-	}
-
-	if err := os.WriteFile(settingsPath, data, 0644); err != nil {
-		return false, fmt.Errorf("failed to write settings.json: %w", err)
-	}
-
-	return true, nil
 }

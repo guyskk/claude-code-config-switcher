@@ -14,6 +14,7 @@
 - Automatic provider configuration merging
 - Configuration validation with API connectivity testing
 - Pass-through of all Claude Code arguments
+- Supervisor Mode for automatic task review and iteration
 - Debug mode with custom config directories
 - Clean, intuitive CLI interface
 
@@ -105,7 +106,7 @@ Create `~/.claude/ccc.json`:
 - `current_provider` — Last used provider (auto-updated)
 - `providers` — Provider-specific overrides
 
-**How it works:** When switching providers, `ccc` deep-merges the provider's config with the base template, then saves it to `~/.claude/settings-{provider}.json`.
+**How it works:** When switching providers, `ccc` deep-merges the provider's config with the base template, then saves it to `~/.claude/settings.json`.
 
 See `./tmp/example/` for more examples.
 
@@ -154,7 +155,7 @@ ccc kimi /path/to/project
 
 **Note:** Arguments configured in `claude_args` are automatically prepended to any command-line arguments. For example, if `claude_args` is `["--verbose", "--debug"]` and you run `ccc kimi --help`, the actual command will be:
 ```bash
-claude --settings ~/.claude/settings-kimi.json --verbose --debug --help
+claude --verbose --debug --help
 ```
 
 ### Validation Command
@@ -194,8 +195,36 @@ Validating 3 provider(s)...
 | Variable | Description |
 |----------|-------------|
 | `CCC_CONFIG_DIR` | Override config directory (default: `~/.claude/`) |
+| `CCC_SUPERVISOR` | Enable Supervisor mode (set to `"1"` to enable) |
 
 ```bash
 # Debug with custom config
 CCC_CONFIG_DIR=./tmp ccc kimi
+
+# Enable Supervisor mode
+CCC_SUPERVISOR=1 ccc kimi
 ```
+
+### Supervisor Mode
+
+Supervisor Mode enables automatic task review and iteration. When enabled, after each Agent stop, a Supervisor checks the work quality and provides feedback if incomplete.
+
+```bash
+# Enable Supervisor Mode
+export CCC_SUPERVISOR=1
+ccc kimi --debug
+```
+
+**How it works:**
+
+1. When `CCC_SUPERVISOR=1` is set, `ccc` generates `settings.json` with a Stop hook
+2. After the Agent stops, the hook calls a Supervisor Claude to review the work
+3. If the task is incomplete, the Supervisor provides feedback and the Agent continues
+4. This creates an action-feedback loop until the Supervisor confirms task completion
+
+**Requirements:**
+
+- A `SUPERVISOR.md` file in `~/.claude/SUPERVISOR.md` with the Supervisor prompt
+- The Supervisor returns structured JSON with `completed` (boolean) and `feedback` (string)
+
+**Iteration limit:** Maximum 10 iterations per session to prevent infinite loops
