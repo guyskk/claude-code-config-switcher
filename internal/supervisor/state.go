@@ -21,20 +21,11 @@ type State struct {
 const DefaultMaxIterations = 10
 
 // GetStateDir returns the directory for supervisor state files.
-// Checks CCC_CONFIG_DIR environment variable first (for consistency with rest of ccc),
-// then falls back to CCC_WORK_DIR for backward compatibility, then uses ~/.claude/ccc/.
 func GetStateDir() (string, error) {
-	// Check for CCC_CONFIG_DIR environment variable first (standard for ccc)
 	if configDir := os.Getenv("CCC_CONFIG_DIR"); configDir != "" {
 		return filepath.Join(configDir, "ccc"), nil
 	}
 
-	// Check for CCC_WORK_DIR environment variable for backward compatibility
-	if workDir := os.Getenv("CCC_WORK_DIR"); workDir != "" {
-		return filepath.Join(workDir, "ccc"), nil
-	}
-
-	// Default to ~/.claude/ccc
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("failed to get home directory: %w", err)
