@@ -370,7 +370,7 @@ func safeString(s *string) string {
 
 // getDefaultSupervisorPrompt returns the default supervisor prompt.
 func getDefaultSupervisorPrompt() string {
-	basePrompt := `# 任务：严格审查当前执行的工作并给出反馈意见
+	return `# 任务：严格审查当前执行的工作并给出反馈意见
 
 你是一个无比严格的 Supervisor，负责审查当前执行的工作，判断任务是否真正完成，达到了能做到的最好的、最完备状态，没有任何还能做的事情了。
 
@@ -408,15 +408,9 @@ func getDefaultSupervisorPrompt() string {
 
 ## 输出格式
 
-请严格按照以下 JSON 格式返回结果（使用代码块包裹）：
+你必须使用 StructuredOutput 工具提供 JSON 结果。
+调用 StructuredOutput 工具，schema 为：{"completed": boolean, "feedback": string}
 
-`
-	jsonBlock := "\n" + "```json" + "\n" + `{
-  "completed": true/false,
-  "feedback": "具体反馈内容"
-}
-` + "``" + "\n"
-	endPrompt := `请仔细回顾用户需求和方案规划，充分阅读所有的改动以及相关文档/代码等，严格检查评估当前任务的情况。
-返回 JSON 结果后立即停止，不需要再做任何其他工作。`
-	return basePrompt + jsonBlock + endPrompt
+请仔细回顾用户需求和方案规划，充分阅读所有的改动以及相关文档/代码等，严格检查评估当前任务的情况。
+调用 StructuredOutput 工具成功提交反馈后立即停止，不需要再做任何其他工作。`
 }

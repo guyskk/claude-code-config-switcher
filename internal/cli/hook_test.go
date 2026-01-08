@@ -98,7 +98,7 @@ func TestGetDefaultSupervisorPrompt(t *testing.T) {
 	if !strings.Contains(prompt, "feedback") {
 		t.Error("getDefaultSupervisorPrompt() missing 'feedback'")
 	}
-	if !strings.Contains(prompt, "json") {
-		t.Error("getDefaultSupervisorPrompt() missing 'json'")
+	if !strings.Contains(prompt, "StructuredOutput") {
+		t.Error("getDefaultSupervisorPrompt() missing 'StructuredOutput'")
 	}
 }
