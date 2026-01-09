@@ -45,7 +45,9 @@ type SupervisorResult struct {
 func RunSupervisorHook(args []string) error {
 	// Check if this is a Supervisor's hook call (to avoid infinite loop)
 	// When CCC_SUPERVISOR_HOOK=1 is set, output empty JSON to allow stop
-	if os.Getenv("CCC_SUPERVISOR_HOOK") == "1" {
+	isSupervisorMode := os.Getenv("CCC_SUPERVISOR") == "1"
+	isSupervisorHook := os.Getenv("CCC_SUPERVISOR_HOOK") == "1"
+	if (!isSupervisorMode) || isSupervisorHook {
 		output := HookOutput{}
 		outputJSON, err := json.Marshal(output)
 		if err != nil {
@@ -217,8 +219,8 @@ func runSupervisorWithSDK(ctx context.Context, sessionID, prompt string, timeout
 	// - No SystemPrompt: Let SDK load system prompts from settings automatically
 	// - No PermissionMode: Use system defaults from Claude settings
 	opts := types.NewClaudeAgentOptions().
-		WithForkSession(true).                                 // Fork the current session
-		WithResume(sessionID).                                 // Resume from specific session
+		WithForkSession(true).                                                                            // Fork the current session
+		WithResume(sessionID).                                                                            // Resume from specific session
 		WithSettingSources(types.SettingSourceUser, types.SettingSourceProject, types.SettingSourceLocal) // Load all setting sources
 
 	// Set environment variable to avoid infinite loop
