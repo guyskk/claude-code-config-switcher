@@ -17,12 +17,6 @@ type HookOutput struct {
 	Reason   string `json:"reason,omitempty"`
 }
 
-// OutputResult represents the supervisor result for output.
-type OutputResult struct {
-	AllowStop bool
-	Feedback  string
-}
-
 // OutputDecision outputs the supervisor's decision.
 //
 // Parameters:
@@ -65,64 +59,6 @@ func OutputDecision(log logger.Logger, allowStop bool, feedback string) error {
 	}
 
 	return nil
-}
-
-// OutputSupervisorResult outputs the supervisor result based on AllowStop.
-func OutputSupervisorResult(log logger.Logger, result *OutputResult) error {
-	// Build user message for stderr
-	var userMessage string
-	if result == nil {
-		userMessage = fmt.Sprintf("\n%s\n[RESULT] No supervisor result found, allowing stop\n",
-			strings.Repeat("=", 60))
-		fmt.Fprintf(os.Stderr, "%s", userMessage)
-		return OutputDecision(log, true, "")
-	}
-
-	if result.AllowStop {
-		userMessage = fmt.Sprintf("\n%s\n[RESULT] Work satisfactory, allowing stop\n",
-			strings.Repeat("=", 60))
-		fmt.Fprintf(os.Stderr, "%s", userMessage)
-		return OutputDecision(log, true, "")
-	}
-
-	// Block with feedback
-	feedback := strings.TrimSpace(result.Feedback)
-	if feedback == "" {
-		feedback = "Please continue completing the task"
-	}
-	userMessage = fmt.Sprintf("\n%s\n[RESULT] Work not satisfactory\nFeedback: %s\nAgent will continue working based on feedback\n%s\n\n",
-		strings.Repeat("=", 60),
-		feedback,
-		strings.Repeat("=", 60))
-	fmt.Fprintf(os.Stderr, "%s", userMessage)
-
-	return OutputDecision(log, false, result.Feedback)
-}
-
-// OutputMaxIterationsReached outputs a message when max iterations is reached.
-func OutputMaxIterationsReached(log logger.Logger, count, maxIterations int) error {
-	log.Warn("max iterations reached, allowing stop",
-		logger.IntField("count", count),
-		logger.IntField("max", maxIterations),
-	)
-
-	userMessage := fmt.Sprintf("\n%s\n[STOP] Max iterations (%d) reached, allowing stop\n%s\n\n",
-		strings.Repeat("=", 60),
-		count,
-		strings.Repeat("=", 60))
-	fmt.Fprintf(os.Stderr, "%s", userMessage)
-
-	return OutputDecision(log, true, "")
-}
-
-// OutputIterationCount outputs the current iteration count.
-func OutputIterationCount(log logger.Logger, count, maxIterations int) {
-	log.Info("iteration count",
-		logger.IntField("count", count),
-		logger.IntField("max", maxIterations),
-	)
-
-	fmt.Fprintf(os.Stderr, "Iteration count: %d/%d\n", count, maxIterations)
 }
 
 // OutputSupervisorStart outputs a message when supervisor review starts.

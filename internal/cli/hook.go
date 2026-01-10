@@ -118,7 +118,13 @@ func RunSupervisorHook(args []string) error {
 		log.Warn("failed to check state", logger.StringField("error", err.Error()))
 	}
 	if !shouldContinue {
-		return supervisor.OutputMaxIterationsReached(log, count, maxIterations)
+		log.Warn("max iterations reached, allowing stop",
+			logger.IntField("count", count),
+			logger.IntField("max", maxIterations),
+		)
+		fmt.Fprintf(os.Stderr, "\n%s\n[STOP] Max iterations (%d) reached, allowing stop\n%s\n\n",
+			strings.Repeat("=", 60), count, strings.Repeat("=", 60))
+		return supervisor.OutputDecision(log, true, "")
 	}
 
 	// Step 10: Increment count
@@ -126,7 +132,11 @@ func RunSupervisorHook(args []string) error {
 	if err != nil {
 		log.Warn("failed to increment count", logger.StringField("error", err.Error()))
 	} else {
-		supervisor.OutputIterationCount(log, newCount, maxIterations)
+		log.Info("iteration count",
+			logger.IntField("count", newCount),
+			logger.IntField("max", maxIterations),
+		)
+		fmt.Fprintf(os.Stderr, "Iteration count: %d/%d\n", newCount, maxIterations)
 	}
 
 	// Step 11: Get default supervisor prompt (hardcoded)
@@ -155,10 +165,10 @@ func RunSupervisorHook(args []string) error {
 	supervisor.OutputSupervisorCompleted(log)
 
 	// Step 14: Output result based on AllowStop decision
-	outputResult := &supervisor.OutputResult{}
-	if result != nil {
-		outputResult.AllowStop = result.AllowStop
-		outputResult.Feedback = result.Feedback
+	if result == nil {
+		fmt.Fprintf(os.Stderr, "\n%s\n[RESULT] No supervisor result found, allowing stop\n",
+			strings.Repeat("=", 60))
+		return supervisor.OutputDecision(log, true, "")
 	}
 
 	// Log the result (only once, in addition to raw message log)
@@ -169,7 +179,20 @@ func RunSupervisorHook(args []string) error {
 		log.Info("supervisor result", logger.StringField("result", string(resultJSON)))
 	}
 
-	return supervisor.OutputSupervisorResult(log, outputResult)
+	if result.AllowStop {
+		fmt.Fprintf(os.Stderr, "\n%s\n[RESULT] Work satisfactory, allowing stop\n",
+			strings.Repeat("=", 60))
+		return supervisor.OutputDecision(log, true, "")
+	}
+
+	// Block with feedback
+	feedback := strings.TrimSpace(result.Feedback)
+	if feedback == "" {
+		feedback = "Please continue completing the task"
+	}
+	fmt.Fprintf(os.Stderr, "\n%s\n[RESULT] Work not satisfactory\nFeedback: %s\nAgent will continue working based on feedback\n%s\n\n",
+		strings.Repeat("=", 60), feedback, strings.Repeat("=", 60))
+	return supervisor.OutputDecision(log, false, result.Feedback)
 }
 
 // runSupervisorWithSDK runs the supervisor using the Claude Agent SDK.
