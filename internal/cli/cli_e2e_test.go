@@ -810,12 +810,12 @@ func TestE2E_SupervisorOutputDecisionJSON(t *testing.T) {
 
 	// Test both scenarios
 	tests := []struct {
-		name            string
-		envVars         []string
-		input           string
-		expectedJSON    string
-		expectedReason  string
-		shouldContain   string
+		name             string
+		envVars          []string
+		input            string
+		expectedJSON     string
+		expectedReason   string
+		shouldContain    string
 		shouldNotContain string
 	}{
 		{
@@ -823,9 +823,9 @@ func TestE2E_SupervisorOutputDecisionJSON(t *testing.T) {
 			envVars: []string{
 				"CCC_SUPERVISOR_HOOK=1", // Bypasses external claude call
 			},
-			input:           `{"session_id":"test-session-123","stop_hook_active":true}`,
-			expectedJSON:    `{"reason":"not in supervisor mode or called from supervisor hook"}`,
-			expectedReason:  "not in supervisor mode or called from supervisor hook",
+			input:            `{"session_id":"test-session-123","stop_hook_active":true}`,
+			expectedJSON:     `{"reason":"not in supervisor mode or called from supervisor hook"}`,
+			expectedReason:   "not in supervisor mode or called from supervisor hook",
 			shouldNotContain: `"decision":`,
 		},
 		{
@@ -833,9 +833,9 @@ func TestE2E_SupervisorOutputDecisionJSON(t *testing.T) {
 			envVars: []string{
 				"CCC_SUPERVISOR=0", // NOT in supervisor mode
 			},
-			input:           `{"session_id":"test-session-456","stop_hook_active":true}`,
-			expectedJSON:    `{"reason":"not in supervisor mode or called from supervisor hook"}`,
-			expectedReason:  "not in supervisor mode or called from supervisor hook",
+			input:            `{"session_id":"test-session-456","stop_hook_active":true}`,
+			expectedJSON:     `{"reason":"not in supervisor mode or called from supervisor hook"}`,
+			expectedReason:   "not in supervisor mode or called from supervisor hook",
 			shouldNotContain: `"decision":`,
 		},
 	}
