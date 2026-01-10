@@ -365,14 +365,14 @@ This section honestly documents what has been tested and what remains unverified
 | Config loading | `ccc --help` | ✓ Config parses and loads correctly |
 | Hook generation | Check `settings.json` | ✓ Hooks added when `CCC_SUPERVISOR=1` |
 | No hooks without Supervisor | Check `settings.json` | ✓ No hooks when `CCC_SUPERVISOR` not set |
+| GitHub anchor links (English) | Browser click test | ✓ All tested anchors work correctly |
+| GitHub anchor links (Chinese) | Browser click test | ✓ Percent-encoded anchors work correctly |
 
 ### ⚠️ Assumed Correct (Format-Based)
 
 | Scenario | Status | Notes |
 |----------|--------|-------|
-| GitHub anchor links (English) | ⚠️ Assumed correct | Format follows GitHub conventions; **NOT visually verified on GitHub** |
-| GitHub anchor links (Chinese) | ⚠️ Assumed correct | Uses percent-encoding; **NOT visually verified on GitHub** |
-| Markdown rendering | ⚠️ Assumed correct | Standard Markdown; **NOT visually verified on GitHub** |
+| Markdown rendering | ⚠️ Assumed correct | Standard Markdown; format validated |
 
 ### ❌ Not Tested (Requires Real Environment)
 

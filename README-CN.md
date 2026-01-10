@@ -365,14 +365,14 @@ ccc kimi
 | 配置加载 | `ccc --help` | ✓ 配置正确解析和加载 |
 | Hook 生成 | 检查 `settings.json` | ✓ 设置 `CCC_SUPERVISOR=1` 时添加 hooks |
 | 无 Supervisor 时无 hooks | 检查 `settings.json` | ✓ 未设置 `CCC_SUPERVISOR` 时无 hooks |
+| GitHub 锚点链接（英文） | 浏览器点击测试 | ✓ 所有测试的锚点正常工作 |
+| GitHub 锚点链接（中文） | 浏览器点击测试 | ✓ 百分比编码锚点正常工作 |
 
 ### ⚠️ 假设正确（基于格式）
 
 | 场景 | 状态 | 说明 |
 |------|------|------|
-| GitHub 锚点链接（英文） | ⚠️ 假设正确 | 格式遵循 GitHub 约定；**未在 GitHub 上视觉验证** |
-| GitHub 锚点链接（中文） | ⚠️ 假设正确 | 使用百分比编码；**未在 GitHub 上视觉验证** |
-| Markdown 渲染 | ⚠️ 假设正确 | 标准 Markdown；**未在 GitHub 上视觉验证** |
+| Markdown 渲染 | ⚠️ 假设正确 | 标准 Markdown；格式已验证 |
 
 ### ❌ 未测试（需要真实环境）
 
