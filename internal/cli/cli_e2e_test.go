@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -362,6 +363,85 @@ func TestE2E_SupervisorMode(t *testing.T) {
 			t.Errorf("expected launching message: %v", err)
 		}
 	})
+}
+
+// TestE2E_SupervisorLogFormat tests that supervisor logs use the correct format
+func TestE2E_SupervisorLogFormat(t *testing.T) {
+	// Create test config
+	tmpDir := t.TempDir()
+	testConfigDir := filepath.Join(tmpDir, ".claude")
+	if err := os.MkdirAll(testConfigDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	testConfig := filepath.Join(testConfigDir, "ccc.json")
+	configContent := `{
+		"settings": {"permissions": {"defaultMode": "acceptEdits"}},
+		"current_provider": "test1",
+		"providers": {
+			"test1": {"env": {"ANTHROPIC_AUTH_TOKEN": "test1"}}
+		}
+	}`
+	if err := os.WriteFile(testConfig, []byte(configContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Run ccc with an invalid flag to cause quick exit (but still trigger supervisor init)
+	cmd := exec.Command(cccBinaryPath, "test1", "--invalid-flag-to-cause-exit")
+	cmd.Env = append(os.Environ(),
+		fmt.Sprintf("CCC_CONFIG_DIR=%s", testConfigDir),
+		"CCC_SUPERVISOR=1")
+
+	output, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatal("expected command to fail with invalid flag")
+	}
+
+	outputStr := string(output)
+
+	// Verify stderr contains supervisor messages with correct format
+	// Format: 2026-01-10T16:20:55.995859698+08:00 INFO message
+	expectedPatterns := []string{
+		"Supervisor enabled: tail -f",
+		"INFO Supervisor started: supervisor_id=",
+		"INFO Supervisor hook enabled supervisor_id=",
+		"INFO Waiting for Stop hook to trigger",
+	}
+
+	for _, pattern := range expectedPatterns {
+		if !strings.Contains(outputStr, pattern) {
+			t.Errorf("expected output to contain %q, got: %s", pattern, outputStr)
+		}
+	}
+
+	// Verify log file exists and has correct format
+	stateDir := filepath.Join(testConfigDir, "ccc")
+	logFiles, err := filepath.Glob(filepath.Join(stateDir, "supervisor-*.log"))
+	if err != nil {
+		t.Fatalf("failed to find log files: %v", err)
+	}
+	if len(logFiles) != 1 {
+		t.Fatalf("expected 1 log file, found %d", len(logFiles))
+	}
+
+	logContent, err := os.ReadFile(logFiles[0])
+	if err != nil {
+		t.Fatalf("failed to read log file: %v", err)
+	}
+
+	logContentStr := string(logContent)
+
+	// Verify log file uses the correct format
+	// Should NOT have "time=" or "level=" prefixes
+	if strings.Contains(logContentStr, "time=") || strings.Contains(logContentStr, "level=") {
+		t.Errorf("log file should not use 'time=' or 'level=' format, got: %s", logContentStr)
+	}
+
+	// Verify the log format is: timestamp LEVEL message
+	// Example: 2026-01-10T16:20:55.995859698+08:00 INFO Supervisor started
+	if !strings.Contains(logContentStr, "INFO Supervisor started") {
+		t.Errorf("expected log to contain 'INFO Supervisor started', got: %s", logContentStr)
+	}
 }
 
 // TestE2E_ValidateCommand tests the validate command
