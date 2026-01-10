@@ -27,5 +27,5 @@
 - [x] 3.1 更新 proposal（如有需要）
 - [x] 3.2 等待用户审批
 - [x] 3.3 使用 `openspec:apply` 执行实现
-- [ ] 3.4 提交 PR 并 review
-- [ ] 3.5 合并后使用 `openspec:archive` 归档
+- [x] 3.4 提交 PR 并 review
+- [x] 3.5 合并后使用 `openspec:archive` 归档

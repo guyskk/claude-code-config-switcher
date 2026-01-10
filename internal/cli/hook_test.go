@@ -115,10 +115,10 @@ func TestGetDefaultSupervisorPrompt(t *testing.T) {
 	if !strings.Contains(prompt, "审查者") && !strings.Contains(prompt, "Supervisor") {
 		t.Error("getDefaultSupervisorPrompt() missing '审查者' or 'Supervisor'")
 	}
-	if !strings.Contains(prompt, "allow_stop") && !strings.Contains(prompt, "allow_stop") {
+	if !strings.Contains(prompt, "allow_stop") {
 		t.Error("getDefaultSupervisorPrompt() missing 'allow_stop'")
 	}
-	if !strings.Contains(prompt, "feedback") && !strings.Contains(prompt, "feedback") {
+	if !strings.Contains(prompt, "feedback") {
 		t.Error("getDefaultSupervisorPrompt() missing 'feedback'")
 	}
 	// Check that the prompt mentions JSON output format

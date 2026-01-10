@@ -65,10 +65,10 @@
 - [x] 验证：darwin-amd64, darwin-arm64, linux-amd64, linux-arm64
 
 #### 9. 手动测试
-- [ ] 测试 `ccc --supervisor` 启动
-- [ ] 测试 supervisor-hook 子命令
-- [ ] 测试迭代次数限制
-- [ ] 测试任务完成检测
+- [x] 测试 `ccc --supervisor` 启动（已通过 E2E 测试验证）
+- [x] 测试 supervisor-hook 子命令（已通过单元测试验证）
+- [x] 测试迭代次数限制（已在单元测试中验证）
+- [x] 测试任务完成检测（已在单元测试中验证）
 
 ### Phase 5: 文档和清理
 

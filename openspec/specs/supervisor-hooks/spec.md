@@ -128,43 +128,90 @@ Supervisor Mode SHALL 生成包含 Stop hook 的单一 `settings.json` 文件。
 
 #### Scenario: Supervisor 命令构建
 - **GIVEN** session_id 为 "abc123"
-- **AND** SUPERVISOR.md 存在于 `~/.claude/SUPERVISOR.md`
-- **AND** supervisor prompt 内容为 "你是严格的审查者..."
+- **AND** 增强的 Supervisor Prompt 存在于 `internal/cli/supervisor_prompt_default.md`
 - **WHEN** 构建 Supervisor 命令
 - **THEN** 命令应当包含：
   - `claude`
-  - `--fork-session`（而不是 --print）
+  - `--print`
   - `--resume abc123`
   - `--verbose`
   - `--output-format stream-json`
-  - `--json-schema` （包含 completed 和 feedback 字段）
-  - user prompt 为 supervisor prompt + 具体指令（不使用 --system-prompt）
+  - `--json-schema` （包含 allow_stop 和 feedback 字段）
+  - `--system-prompt` （增强的 Supervisor Prompt 内容，约 400-500 行）
+- **AND** Prompt SHALL 包含以下核心部分：
+  - 角色定义：严格的任务审查者
+  - 六步审查框架：理解需求 → 检查工作 → 检查陷阱 → 评估质量 → 判断状态 → 提供反馈
+  - 常见陷阱检测：只问不做、测试循环、虚假完成、缺少验证、错误放弃
+  - 判断标准：allow_stop=true 的 5 个条件，allow_stop=false 的 7 个场景
+  - Feedback 模板：具体的、可执行的、包含足够细节的指令格式
+  - 场景示例：至少 10 个常见情况的判断示例
 - **AND** 环境变量应当包含 `CCC_SUPERVISOR_HOOK=1`
+
+#### Scenario: 增强的 Prompt 内容结构
+- **GIVEN** 增强的 Supervisor Prompt 已加载
+- **WHEN** 检查 Prompt 内容
+- **THEN** SHALL 包含以下部分：
+  - **第一步：理解用户需求** - 提取用户的原始需求，识别明确和隐含要求
+  - **第二步：检查实际工作** - 检测 Agent 是否在执行工具而非只提问
+  - **第三步：检查常见陷阱** - 识别只问不做、测试循环、虚假完成、缺少验证、错误放弃
+  - **第四步：评估完成质量** - 检查代码质量、任务完整性、可交付性
+  - **第五步：判断完成状态** - allow_stop=true 的 5 个必须条件，allow_stop=false 的 7 个场景
+  - **第六步：提供反馈** - Feedback 的质量要求、模板格式、禁止模式
+- **AND** SHALL 包含至少 10 个场景示例
+- **AND** SHALL 包含快速检查清单
+
+#### Scenario: 只问不做检测
+- **GIVEN** Agent 的最后几轮对话只有提问/建议/等待
+- **AND** 没有工具调用（Bash/Edit/Write）
+- **WHEN** Supervisor 执行审查
+- **THEN** SHALL 设置 `allow_stop: false`
+- **AND** Feedback SHALL 指令 Agent 直接执行具体操作
+
+#### Scenario: 缺少验证检测
+- **GIVEN** Agent 修改了代码但没有运行测试/构建验证
+- **WHEN** Supervisor 执行审查
+- **THEN** SHALL 设置 `allow_stop: false`
+- **AND** Feedback SHALL 指令 Agent 运行相应的验证命令
+
+#### Scenario: 测试失败检测
+- **GIVEN** Agent 运行了测试但有失败
+- **AND** Agent 没有修复尝试或停止在第一次失败
+- **WHEN** Supervisor 执行审查
+- **THEN** SHALL 设置 `allow_stop: false`
+- **AND** Feedback SHALL 指令 Agent 修复错误并重新验证
+
+#### Scenario: 完美状态允许停止
+- **GIVEN** Agent 完成了实际工作（有工具调用）
+- **AND** 工作质量达标（无明显 bug/TODO）
+- **AND** 用户需求全部满足
+- **AND** 测试已运行且通过（如适用）
+- **AND** 结果可以直接交付
+- **WHEN** Supervisor 执行审查
+- **THEN** SHALL 设置 `allow_stop: true`
+- **AND** Feedback SHALL 为空字符串
 
 ### Requirement: 结构化输出处理
 
-系统 SHALL 解析 Supervisor 的 stream-json 输出，并将关键信息输出到 stderr。
+系统 SHALL 解析 Supervisor 的 stream-json 输出。
 
-#### Scenario: 解析 stream-json
-- **GIVEN** Supervisor 输出 stream-json 格式
-- **WHEN** 系统处理输出
-- **THEN** 应当将 `type: "text"` 的内容输出到 stderr
-- **AND** 应当提取 `type: "result"` 中的结构化 JSON
-- **AND** 应当将原始输出保存到 `{state_dir}/supervisor-{session_id}-output.jsonl`
-- **AND** 应当在 stderr 输出审查结果摘要
-
-#### Scenario: 结果 JSON Schema
+#### Scenario: 结果 JSON Schema（更新）
 - **GIVEN** Supervisor 被要求返回结构化结果
 - **WHEN** Supervisor 返回结果
-- **THEN** 结果应当符合以下 schema：
+- **THEN** 结果 SHALL 符合以下 schema：
 ```json
 {
   "type": "object",
   "properties": {
-    "completed": {"type": "boolean"},
-    "feedback": {"type": "string"}
+    "allow_stop": {
+      "type": "boolean",
+      "description": "是否允许 Agent 停止工作（true = 工作达到无可挑剔状态，false = 需要继续改进）"
+    },
+    "feedback": {
+      "type": "string",
+      "description": "当 allow_stop 为 false 时，提供具体的、可执行的、包含足够细节的改进指令"
+    }
   },
-  "required": ["completed", "feedback"]
+  "required": ["allow_stop", "feedback"]
 }
 ```
 
@@ -252,4 +299,163 @@ Supervisor Mode SHALL 生成包含 Stop hook 的单一 `settings.json` 文件。
 - **WHEN** 系统尝试解析 Supervisor 结果
 - **THEN** 应当使用默认 feedback "请继续完成任务"
 - **AND** 应当设置 `allow_stop=false`
+
+### Requirement: Supervisor Mode 工作流程
+
+系统 SHALL 实现 Agent-Supervisor 自动循环，直到任务完成或达到迭代限制。
+
+#### Scenario: 首次启动 Supervisor Mode
+- **GIVEN** 用户执行 `ccc --supervisor`
+- **AND** SUPERVISOR.md 文件存在
+- **WHEN** Claude Code 首次触发 Stop hook
+- **THEN** supervisor-hook 应被调用
+- **AND** 迭代次数应初始化为 1
+- **AND** Supervisor 应检查工作质量
+
+#### Scenario: Supervisor 反馈继续工作
+- **GIVEN** Supervisor 返回 `{"completed":false,"feedback":"需要添加错误处理"}`
+- **WHEN** supervisor-hook 输出反馈
+- **THEN** Claude 应收到 `{"decision":"block","reason":"需要添加错误处理"}`
+- **AND** Claude 应继续工作
+- **AND** 下次 Stop 时迭代次数应为 2
+
+#### Scenario: Supervisor 确认完成
+- **GIVEN** Supervisor 返回 `{"completed":true,"feedback":""}`
+- **WHEN** supervisor-hook 处理结果
+- **THEN** 应输出空到 stdout
+- **AND** Claude 应停止（不再继续）
+
+#### Scenario: 达到迭代限制
+- **GIVEN** 迭代次数已达到 10 次
+- **WHEN** supervisor-hook 被调用
+- **THEN** 应输出空到 stdout
+- **AND** 应允许 Claude 停止
+- **AND** 不应再调用 Supervisor
+
+### Requirement: JSON Schema 输出
+
+系统 SHALL 使用 JSON Schema 强制 Supervisor 返回结构化输出。
+
+#### Scenario: Supervisor 返回完成
+- **GIVEN** Agent 已完成所有用户要求的任务
+- **WHEN** Supervisor 被调用
+- **THEN** 应返回 `{"completed":true,"feedback":"任务已成功完成"}`
+- **AND** completed 字段应为 true
+
+#### Scenario: Supervisor 返回未完成
+- **GIVEN** Agent 未完成用户要求的任务
+- **WHEN** Supervisor 被调用
+- **THEN** 应返回 `{"completed":false,"feedback":"具体的问题和改进建议"}`
+- **AND** completed 字段应为 false
+- **AND** feedback 字段应包含具体的反馈
+
+#### Scenario: JSON Schema 格式要求
+- **WHEN** 调用 Supervisor
+- **THEN** 应使用 `--json-schema` 参数指定 schema
+- **AND** schema 应要求 completed 和 feedback 字段
+- **AND** schema 应定义 completed 为 boolean 类型
+- **AND** schema 应定义 feedback 为 string 类型
+
+### Requirement: Supervisor Prompt
+
+系统 SHALL 从 SUPERVISOR.md 读取 Supervisor 提示词。
+
+#### Scenario: 读取 Supervisor Prompt
+- **GIVEN** `~/.claude/SUPERVISOR.md` 文件存在
+- **WHEN** 调用 Supervisor
+- **THEN** 应使用 `--system-prompt` 参数传入 SUPERVISOR.md 内容
+- **AND** SUPERVISOR.md 应包含 JSON Schema 输出格式说明
+
+#### Scenario: 默认 Supervisor Prompt
+- **GIVEN** `~/.claude/SUPERVISOR.md` 文件不存在
+- **WHEN** 用户首次使用 Supervisor Mode
+- **THEN** 应创建默认的 SUPERVISOR.md
+- **AND** 默认内容应包含角色说明和输出格式要求
+
+### Requirement: 状态文件管理
+
+系统 SHALL 使用 JSON 文件管理每个 session 的迭代状态。
+
+#### Scenario: 状态文件结构
+- **GIVEN** session_id 为 "abc123"
+- **WHEN** 创建状态文件
+- **THEN** 文件路径应为 `.claude/ccc/supervisor-abc123.json`
+- **AND** 内容应包含: session_id, count, created_at, updated_at
+- **AND** count 应为当前迭代次数
+
+#### Scenario: 状态文件持久化
+- **GIVEN** 状态文件已存在
+- **WHEN** supervisor-hook 被调用
+- **THEN** 应读取现有状态
+- **AND** 应增加 count
+- **AND** 应更新 updated_at 时间戳
+- **AND** 应保存回文件
+
+#### Scenario: 状态文件并发处理
+- **GIVEN** 多个 hook 可能同时执行（理论上不应发生）
+- **WHEN** 读写状态文件
+- **THEN** 应使用文件锁或原子操作避免竞态条件
+
+### Requirement: 输出文件管理
+
+系统 SHALL 保存 Supervisor 的原始输出到 JSONL 文件。
+
+#### Scenario: 输出文件创建
+- **GIVEN** session_id 为 "abc123"
+- **WHEN** supervisor-hook 首次被调用
+- **THEN** 应创建 `.claude/ccc/supervisor-abc123-output.jsonl`
+- **AND** 文件应以 append 模式写入
+
+#### Scenario: 输出文件内容
+- **GIVEN** Supervisor 输出 stream-json
+- **WHEN** 处理输出
+- **THEN** 每行应作为 JSON 对象写入文件
+- **AND** 应保持原始格式（包括 whitespace）
+- **AND** 文件应为有效的 JSONL 格式
+
+#### Scenario: 输出文件用途
+- **GIVEN** 输出文件存在
+- **WHEN** 用户需要调试
+- **THEN** 文件可用于查看 Supervisor 的完整输出
+- **AND** 文件可用于分析 Supervisor 的决策过程
+
+### Requirement: 错误处理
+
+系统 SHALL 正确处理 supervisor-hook 执行中的错误。
+
+#### Scenario: Supervisor 调用失败
+- **GIVEN** claude 命令执行失败
+- **WHEN** supervisor-hook 调用 Supervisor
+- **THEN** 应输出错误信息到 stderr
+- **AND** 应返回空到 stdout（允许停止）
+- **AND** 退出码应为 0（不影响 Claude）
+
+#### Scenario: 状态文件读写失败
+- **GIVEN** 状态文件读写权限不足
+- **WHEN** supervisor-hook 尝试读写状态
+- **THEN** 应输出错误信息到 stderr
+- **AND** 应继续执行（使用默认值或跳过状态管理）
+
+#### Scenario: JSON 解析失败
+- **GIVEN** Supervisor 返回无效的 JSON
+- **WHEN** supervisor-hook 解析结果
+- **THEN** 应输出错误信息到 stderr
+- **AND** 应返回空到 stdout（允许停止）
+
+### Requirement: Fork Session 使用
+
+系统 SHALL 使用 --fork-session 避免污染主 session。
+
+#### Scenario: Supervisor 使用 Fork Session
+- **WHEN** supervisor-hook 调用 Supervisor
+- **THEN** 应使用 `--fork-session` 参数
+- **AND** 应使用 `--resume <session_id>` 恢复上下文
+- **AND** Supervisor 的输出不应影响主 session
+
+#### Scenario: Supervisor Settings 隔离
+- **GIVEN** 主 settings 包含 Stop hook
+- **WHEN** 调用 Supervisor
+- **THEN** 应使用 supervisor 专用 settings
+- **AND** supervisor settings 不应包含任何 hooks
+- **AND** 避免 hook 递归调用
 
