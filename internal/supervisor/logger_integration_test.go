@@ -194,16 +194,16 @@ func TestOutputDecision_JSONFormat(t *testing.T) {
 		wantReason string
 	}{
 		{
-			name:      "allow stop - empty JSON",
+			name:      "allow stop - empty feedback",
 			allowStop: true,
 			feedback:  "",
-			wantJSON:  "{}\n",
+			wantJSON:  `{"decision":null,"reason":""}` + "\n",
 		},
 		{
-			name:      "allow stop - true with feedback",
+			name:      "allow stop - with feedback",
 			allowStop: true,
 			feedback:  "some feedback",
-			wantJSON:  "{}\n",
+			wantJSON:  `{"decision":null,"reason":"some feedback"}` + "\n",
 		},
 		{
 			name:       "block stop - with feedback",
@@ -273,16 +273,23 @@ func TestOutputDecision_JSONFormat(t *testing.T) {
 
 			// Verify decision field
 			if tt.allowStop {
-				if _, exists := parsed["decision"]; exists {
-					t.Error("decision field should be omitted when allowStop=true")
+				// When allowStop=true, decision should be null
+				if decision, exists := parsed["decision"]; !exists || decision != nil {
+					t.Errorf("decision should be null, got %v", decision)
 				}
 			} else {
 				if decision, exists := parsed["decision"]; !exists || decision != "block" {
 					t.Errorf("decision should be 'block', got %v", decision)
 				}
-				if reason, exists := parsed["reason"]; !exists || reason != tt.wantReason {
-					t.Errorf("reason should be %q, got %v", tt.wantReason, reason)
-				}
+			}
+
+			// Verify reason field
+			wantReason := tt.wantReason
+			if wantReason == "" {
+				wantReason = tt.feedback
+			}
+			if reason, exists := parsed["reason"]; !exists || reason != wantReason {
+				t.Errorf("reason should be %q, got %v", wantReason, reason)
 			}
 		})
 	}

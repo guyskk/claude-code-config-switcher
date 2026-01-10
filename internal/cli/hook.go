@@ -71,7 +71,7 @@ func RunSupervisorHook(args []string) error {
 	// - When NOT in supervisor mode (!CCC_SUPERVISOR=1), output empty JSON to allow stop
 	// - When CCC_SUPERVISOR_HOOK=1 (called from supervisor itself), output empty JSON to allow stop
 	if !isSupervisorMode || isSupervisorHook {
-		return supervisor.OutputDecision(log, true, "")
+		return supervisor.OutputDecision(log, true, "not in supervisor mode or called from supervisor hook")
 	}
 
 	// Step 5: Validate supervisorID is present
@@ -116,7 +116,7 @@ func RunSupervisorHook(args []string) error {
 			"count", count,
 			"max", maxIterations,
 		)
-		return supervisor.OutputDecision(log, true, "")
+		return supervisor.OutputDecision(log, true, fmt.Sprintf("max iterations (%d/%d) reached", count, maxIterations))
 	}
 
 	// Step 10: Increment count
@@ -153,7 +153,7 @@ func RunSupervisorHook(args []string) error {
 	// Step 14: Output result based on AllowStop decision
 	if result == nil {
 		log.Info("no supervisor result found, allowing stop")
-		return supervisor.OutputDecision(log, true, "")
+		return supervisor.OutputDecision(log, true, "no supervisor result found")
 	}
 
 	// Log the result (only once, in addition to raw message log)
@@ -166,7 +166,7 @@ func RunSupervisorHook(args []string) error {
 
 	if result.AllowStop {
 		log.Info("work satisfactory, allowing stop")
-		return supervisor.OutputDecision(log, true, "")
+		return supervisor.OutputDecision(log, true, result.Feedback)
 	}
 
 	// Block with feedback
