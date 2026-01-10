@@ -121,22 +121,9 @@ Supervisor Mode is the most valuable feature of `ccc`. It automatically reviews 
 
 ### Enable Supervisor Mode
 
-**Important**: Supervisor Mode requires `bypassPermissions` to work without user confirmation for each hook call.
+**If you haven't configured `ccc` yet**, follow [Quick Start → Option B: Supervisor Mode](#quick-start-5-minutes) to set up your `ccc.json` with the required `bypassPermissions` setting.
 
-> **Security Note**: `bypassPermissions` allows Claude Code to execute tools without confirmation. While necessary for Supervisor Mode's automatic workflow, be aware of the security implications and only use this in trusted environments.
-
-If you followed the Quick Start configuration above, update your `ccc.json`:
-
-```json
-{
-  "settings": {
-    "permissions": {
-      "allow": ["Edit", "MultiEdit", "Write", "WebFetch", "WebSearch"],
-      "defaultMode": "bypassPermissions"
-    }
-  }
-}
-```
+**If you already have a basic configuration**, update your `ccc.json` to use `bypassPermissions` (see [Quick Start → Option B](#quick-start-5-minutes) for the complete config).
 
 Then enable and run:
 
