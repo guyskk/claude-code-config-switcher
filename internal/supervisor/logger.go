@@ -4,7 +4,6 @@ package supervisor
 import (
 	"context"
 	"fmt"
-	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -17,6 +16,7 @@ import (
 type SupervisorLogger struct {
 	stderrHandler slog.Handler
 	fileHandler   slog.Handler
+	logFile       *os.File // Track the file for proper cleanup
 	mu            sync.Mutex
 	closed        bool
 }
@@ -66,6 +66,7 @@ func NewSupervisorLogger(supervisorID string) *slog.Logger {
 	handler := &SupervisorLogger{
 		stderrHandler: stderrHandler.WithAttrs([]slog.Attr{slog.String("supervisor_id", supervisorID)}),
 		fileHandler:   fileHandler,
+		logFile:       logFile, // Track for cleanup
 	}
 
 	return slog.New(handler)
@@ -73,6 +74,8 @@ func NewSupervisorLogger(supervisorID string) *slog.Logger {
 
 // Enabled reports whether l handles level.
 func (l *SupervisorLogger) Enabled(ctx context.Context, level slog.Level) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	return l.stderrHandler.Enabled(ctx, level)
 }
 
@@ -81,7 +84,10 @@ func (l *SupervisorLogger) Handle(ctx context.Context, r slog.Record) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
+	// Always log to stderr
 	l.stderrHandler.Handle(ctx, r)
+
+	// Log to file if enabled and not closed
 	if l.fileHandler != nil && !l.closed {
 		l.fileHandler.Handle(ctx, r)
 	}
@@ -96,6 +102,8 @@ func (l *SupervisorLogger) WithAttrs(attrs []slog.Attr) slog.Handler {
 	return &SupervisorLogger{
 		stderrHandler: l.stderrHandler.WithAttrs(attrs),
 		fileHandler:   l.withFileHandlerAttrs(attrs),
+		logFile:       l.logFile,
+		closed:        l.closed,
 	}
 }
 
@@ -114,6 +122,8 @@ func (l *SupervisorLogger) WithGroup(name string) slog.Handler {
 	return &SupervisorLogger{
 		stderrHandler: l.stderrHandler.WithGroup(name),
 		fileHandler:   l.withFileHandlerGroup(name),
+		logFile:       l.logFile,
+		closed:        l.closed,
 	}
 }
 
@@ -125,6 +135,7 @@ func (l *SupervisorLogger) withFileHandlerGroup(name string) slog.Handler {
 }
 
 // Close closes the log file if it was opened.
+// This is safe to call multiple times.
 func (l *SupervisorLogger) Close() error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -135,30 +146,12 @@ func (l *SupervisorLogger) Close() error {
 
 	l.closed = true
 
-	// Close the file handler's underlying writer
-	if l.fileHandler != nil {
-		// Try to get the underlying writer from the handler
-		type fileWriter interface {
-			Close() error
+	// Close the file handle
+	if l.logFile != nil {
+		if err := l.logFile.Close(); err != nil {
+			return fmt.Errorf("failed to close log file: %w", err)
 		}
-		// Note: slog.TextHandler doesn't expose Close, so we need to track the file separately
-		// For now, we'll skip this since the file will be closed when the process exits
 	}
 
 	return nil
-}
-
-// NewTextHandlerFile creates a TextHandler with a closeable file.
-// This is a helper that returns both the handler and a closer function.
-func NewTextHandlerFile(path string, level slog.Level) (slog.Handler, io.Closer, error) {
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	handler := slog.NewTextHandler(file, &slog.HandlerOptions{
-		Level: level,
-	})
-
-	return handler, file, nil
 }

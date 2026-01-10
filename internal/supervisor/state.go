@@ -9,6 +9,23 @@ import (
 	"time"
 )
 
+// getStateDirFunc is a function that returns the state directory.
+// This is a variable to allow testing to override it.
+var getStateDirFunc = getDefaultStateDir
+
+// getDefaultStateDir returns the default state directory.
+func getDefaultStateDir() (string, error) {
+	if configDir := os.Getenv("CCC_CONFIG_DIR"); configDir != "" {
+		return filepath.Join(configDir, "ccc"), nil
+	}
+
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get home directory: %w", err)
+	}
+	return filepath.Join(homeDir, ".claude", "ccc"), nil
+}
+
 // State represents the supervisor state for a session.
 type State struct {
 	SessionID string    `json:"session_id"`
@@ -23,15 +40,7 @@ const DefaultMaxIterations = 20
 
 // GetStateDir returns the directory for supervisor state files.
 func GetStateDir() (string, error) {
-	if configDir := os.Getenv("CCC_CONFIG_DIR"); configDir != "" {
-		return filepath.Join(configDir, "ccc"), nil
-	}
-
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("failed to get home directory: %w", err)
-	}
-	return filepath.Join(homeDir, ".claude", "ccc"), nil
+	return getStateDirFunc()
 }
 
 // GetStatePath returns the path to the state file for a given session.
