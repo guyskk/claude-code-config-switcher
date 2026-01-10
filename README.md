@@ -355,40 +355,61 @@ Create `~/.claude/SUPERVISOR.md` to customize the Supervisor prompt. See `intern
 
 ## Verification
 
-This section documents what has been tested and verified.
+This section honestly documents what has been tested and what remains unverified.
 
-### ✅ Verified Scenarios
+### ✅ Actually Tested (Automated)
+
+| Scenario | Method | Result |
+|----------|--------|--------|
+| JSON syntax | `python3 -m json.tool` | ✓ Config examples are valid JSON |
+| Config loading | `ccc --help` | ✓ Config parses and loads correctly |
+| Hook generation | Check `settings.json` | ✓ Hooks added when `CCC_SUPERVISOR=1` |
+| No hooks without Supervisor | Check `settings.json` | ✓ No hooks when `CCC_SUPERVISOR` not set |
+
+### ⚠️ Assumed Correct (Format-Based)
 
 | Scenario | Status | Notes |
 |----------|--------|-------|
-| JSON config syntax | ✅ Verified | Config examples validated with `python3 -m json.tool` |
-| Config loading | ✅ Verified | `ccc --help` correctly loads and parses config |
-| Basic Mode behavior | ✅ Verified | No hooks added when `CCC_SUPERVISOR` not set |
-| Supervisor Mode hook generation | ✅ Verified | Stop hook correctly added to `settings.json` when `CCC_SUPERVISOR=1` |
-| `bypassPermissions` requirement | ✅ Verified | Required for automatic hook execution without user prompts |
+| GitHub anchor links (English) | ⚠️ Assumed correct | Format follows GitHub conventions; **NOT visually verified on GitHub** |
+| GitHub anchor links (Chinese) | ⚠️ Assumed correct | Uses percent-encoding; **NOT visually verified on GitHub** |
+| Markdown rendering | ⚠️ Assumed correct | Standard Markdown; **NOT visually verified on GitHub** |
 
-### ⚠️ Known Limitations
+### ❌ Not Tested (Requires Real Environment)
 
-| Scenario | Status | Reason |
-|----------|--------|--------|
-| Full Claude Code session | ⚠️ Not tested | Requires valid API credentials |
-| Supervisor hook execution | ⚠️ Not tested | Requires full Claude Code session with Agent activity |
-| GitHub anchor link rendering | ⚠️ Not visually verified | Format follows GitHub conventions; visual confirmation pending |
+| Scenario | Status | Why Not Tested |
+|----------|--------|----------------|
+| Complete user flow | ❌ Not tested | Requires real user following instructions |
+| Supervisor Mode in action | ❌ Not tested | Requires valid API credentials and Agent activity |
+| Hook execution feedback loop | ❌ Not tested | Requires actual Supervisor-Agent interaction |
+| "5 minute" Quick Start claim | ❌ Not tested | No real user has tried this end-to-end |
 
-### Test Commands Used
+### User Testing
+
+**Status: ❌ NOT YET TESTED BY REAL USERS**
+
+This documentation has NOT been validated by a real user following the Quick Start instructions.
+
+**To help verify this documentation:**
+1. Follow the Quick Start section from scratch
+2. Report any issues or confusion you encounter
+3. Your feedback will improve this documentation
+
+**Testing commands used (for reference):**
 
 ```bash
-# JSON syntax validation
-python3 -m json.tool config.json
+# Test 1: JSON syntax
+python3 -m json.tool test-config.json
 
-# Config loading test
+# Test 2: Config loads
 CCC_CONFIG_DIR=./tmp/test ./ccc --help
 
-# Verify hook generation
+# Test 3: Hooks generated correctly
 export CCC_SUPERVISOR=1
 CCC_CONFIG_DIR=./tmp/test ./ccc kimi --help
 cat settings.json | grep -A 10 "hooks"
 ```
+
+**IMPORTANT**: The tests above verify technical correctness, NOT whether a real user can successfully follow this documentation.
 
 ---
 

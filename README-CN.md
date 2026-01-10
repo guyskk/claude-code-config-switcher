@@ -355,40 +355,61 @@ ccc kimi
 
 ## 验证
 
-本章节说明已测试和验证的内容。
+本章节诚实地记录了已测试和未测试的内容。
 
-### ✅ 已验证场景
+### ✅ 实际已测试（自动化）
+
+| 场景 | 方法 | 结果 |
+|------|------|------|
+| JSON 语法 | `python3 -m json.tool` | ✓ 配置示例是有效的 JSON |
+| 配置加载 | `ccc --help` | ✓ 配置正确解析和加载 |
+| Hook 生成 | 检查 `settings.json` | ✓ 设置 `CCC_SUPERVISOR=1` 时添加 hooks |
+| 无 Supervisor 时无 hooks | 检查 `settings.json` | ✓ 未设置 `CCC_SUPERVISOR` 时无 hooks |
+
+### ⚠️ 假设正确（基于格式）
 
 | 场景 | 状态 | 说明 |
 |------|------|------|
-| JSON 配置语法 | ✅ 已验证 | 配置示例通过 `python3 -m json.tool` 验证 |
-| 配置加载 | ✅ 已验证 | `ccc --help` 正确加载和解析配置 |
-| 基础模式行为 | ✅ 已验证 | 未设置 `CCC_SUPERVISOR` 时不添加 hooks |
-| Supervisor 模式 hook 生成 | ✅ 已验证 | 设置 `CCC_SUPERVISOR=1` 时正确添加 Stop hook 到 `settings.json` |
-| `bypassPermissions` 必需性 | ✅ 已验证 | 需要此设置才能自动执行 hook 而无需用户确认 |
+| GitHub 锚点链接（英文） | ⚠️ 假设正确 | 格式遵循 GitHub 约定；**未在 GitHub 上视觉验证** |
+| GitHub 锚点链接（中文） | ⚠️ 假设正确 | 使用百分比编码；**未在 GitHub 上视觉验证** |
+| Markdown 渲染 | ⚠️ 假设正确 | 标准 Markdown；**未在 GitHub 上视觉验证** |
 
-### ⚠️ 已知限制
+### ❌ 未测试（需要真实环境）
 
-| 场景 | 状态 | 原因 |
-|------|------|------|
-| 完整 Claude Code 会话 | ⚠️ 未测试 | 需要有效的 API 凭证 |
-| Supervisor hook 执行 | ⚠️ 未测试 | 需要完整的 Claude Code 会话和 Agent 活动 |
-| GitHub 锚点链接渲染 | ⚠️ 未视觉验证 | 格式遵循 GitHub 约定；视觉确认待定 |
+| 场景 | 状态 | 未测试原因 |
+|------|------|-----------|
+| 完整用户流程 | ❌ 未测试 | 需要真实用户按文档操作 |
+| Supervisor 实际运行 | ❌ 未测试 | 需要有效 API 凭证和 Agent 活动 |
+| Hook 执行反馈循环 | ❌ 未测试 | 需要实际的 Supervisor-Agent 交互 |
+| "5 分钟"快速上手声明 | ❌ 未测试 | 没有真实用户端到端尝试过 |
 
-### 使用的测试命令
+### 用户测试
+
+**状态：❌ 尚无真实用户测试**
+
+本文档**尚未经过真实用户**按照快速开始指令进行验证。
+
+**帮助验证本文档：**
+1. 从头按照快速开始部分操作
+2. 报告遇到的任何问题或困惑
+3. 您的反馈将改进本文档
+
+**使用的测试命令（供参考）：**
 
 ```bash
-# JSON 语法验证
-python3 -m json.tool config.json
+# 测试 1: JSON 语法
+python3 -m json.tool test-config.json
 
-# 配置加载测试
+# 测试 2: 配置加载
 CCC_CONFIG_DIR=./tmp/test ./ccc --help
 
-# 验证 hook 生成
+# 测试 3: Hooks 正确生成
 export CCC_SUPERVISOR=1
 CCC_CONFIG_DIR=./tmp/test ./ccc kimi --help
 cat settings.json | grep -A 10 "hooks"
 ```
+
+**重要说明**：以上测试验证技术正确性，**不验证**真实用户能否成功按照本文档操作。
 
 ---
 
