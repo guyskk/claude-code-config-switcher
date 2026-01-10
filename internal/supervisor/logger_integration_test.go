@@ -478,8 +478,8 @@ func TestSupervisorLogger_OutputDecisionLogging(t *testing.T) {
 
 			// For block case, verify feedback is logged
 			if !tt.allowStop && tt.feedback != "" {
-				// slog uses quoted strings for string values
-				if !strings.Contains(logContent, `feedback="`+tt.feedback+`"`) {
+				// New friendly format: feedback=value (without quotes)
+				if !strings.Contains(logContent, `feedback=`+tt.feedback) {
 					t.Errorf("log file missing feedback, got: %s", logContent)
 				}
 			}

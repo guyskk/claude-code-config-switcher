@@ -47,15 +47,10 @@ func runClaude(cfg *config.Config, providerName string, claudeArgs []string, sup
 		logPath := fmt.Sprintf("%s/supervisor-%s.log", stateDir, supervisorID)
 		fmt.Printf("Supervisor enabled: tail -f %s\n", logPath)
 
-		// Pre-create log directory and file so tail -f works immediately
-		if err := os.MkdirAll(stateDir, 0755); err == nil {
-			logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
-			if err == nil {
-				fmt.Fprintf(logFile, "[SUPERVISOR] Hook enabled: %s\n", supervisorID)
-				fmt.Fprintf(logFile, "[SUPERVISOR] Waiting for Stop hook to trigger...\n\n")
-				logFile.Close()
-			}
-		}
+		// Create supervisor logger and log initial messages
+		log := supervisor.NewSupervisorLogger(supervisorID)
+		log.Info("Supervisor hook enabled", "supervisor_id", supervisorID)
+		log.Info("Waiting for Stop hook to trigger")
 	}
 
 	// switch provider
