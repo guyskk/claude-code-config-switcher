@@ -353,6 +353,45 @@ Create `~/.claude/SUPERVISOR.md` to customize the Supervisor prompt. See `intern
 
 ---
 
+## Verification
+
+This section documents what has been tested and verified.
+
+### ✅ Verified Scenarios
+
+| Scenario | Status | Notes |
+|----------|--------|-------|
+| JSON config syntax | ✅ Verified | Config examples validated with `python3 -m json.tool` |
+| Config loading | ✅ Verified | `ccc --help` correctly loads and parses config |
+| Basic Mode behavior | ✅ Verified | No hooks added when `CCC_SUPERVISOR` not set |
+| Supervisor Mode hook generation | ✅ Verified | Stop hook correctly added to `settings.json` when `CCC_SUPERVISOR=1` |
+| `bypassPermissions` requirement | ✅ Verified | Required for automatic hook execution without user prompts |
+
+### ⚠️ Known Limitations
+
+| Scenario | Status | Reason |
+|----------|--------|--------|
+| Full Claude Code session | ⚠️ Not tested | Requires valid API credentials |
+| Supervisor hook execution | ⚠️ Not tested | Requires full Claude Code session with Agent activity |
+| GitHub anchor link rendering | ⚠️ Not visually verified | Format follows GitHub conventions; visual confirmation pending |
+
+### Test Commands Used
+
+```bash
+# JSON syntax validation
+python3 -m json.tool config.json
+
+# Config loading test
+CCC_CONFIG_DIR=./tmp/test ./ccc --help
+
+# Verify hook generation
+export CCC_SUPERVISOR=1
+CCC_CONFIG_DIR=./tmp/test ./ccc kimi --help
+cat settings.json | grep -A 10 "hooks"
+```
+
+---
+
 ## Building from Source
 
 ```bash

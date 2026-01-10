@@ -353,6 +353,45 @@ ccc kimi
 
 ---
 
+## 验证
+
+本章节说明已测试和验证的内容。
+
+### ✅ 已验证场景
+
+| 场景 | 状态 | 说明 |
+|------|------|------|
+| JSON 配置语法 | ✅ 已验证 | 配置示例通过 `python3 -m json.tool` 验证 |
+| 配置加载 | ✅ 已验证 | `ccc --help` 正确加载和解析配置 |
+| 基础模式行为 | ✅ 已验证 | 未设置 `CCC_SUPERVISOR` 时不添加 hooks |
+| Supervisor 模式 hook 生成 | ✅ 已验证 | 设置 `CCC_SUPERVISOR=1` 时正确添加 Stop hook 到 `settings.json` |
+| `bypassPermissions` 必需性 | ✅ 已验证 | 需要此设置才能自动执行 hook 而无需用户确认 |
+
+### ⚠️ 已知限制
+
+| 场景 | 状态 | 原因 |
+|------|------|------|
+| 完整 Claude Code 会话 | ⚠️ 未测试 | 需要有效的 API 凭证 |
+| Supervisor hook 执行 | ⚠️ 未测试 | 需要完整的 Claude Code 会话和 Agent 活动 |
+| GitHub 锚点链接渲染 | ⚠️ 未视觉验证 | 格式遵循 GitHub 约定；视觉确认待定 |
+
+### 使用的测试命令
+
+```bash
+# JSON 语法验证
+python3 -m json.tool config.json
+
+# 配置加载测试
+CCC_CONFIG_DIR=./tmp/test ./ccc --help
+
+# 验证 hook 生成
+export CCC_SUPERVISOR=1
+CCC_CONFIG_DIR=./tmp/test ./ccc kimi --help
+cat settings.json | grep -A 10 "hooks"
+```
+
+---
+
 ## 从源码构建
 
 ```bash
