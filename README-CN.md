@@ -81,6 +81,20 @@ Supervisor 模式是 `ccc` 最有价值的特性。它会在 Agent 每次停止�
 
 ### 启用 Supervisor 模式
 
+**重要**：Supervisor 模式需要 `bypassPermissions` 才能无需用户确认每次 hook 调用。在你的 `ccc.json` 中添加：
+
+```json
+{
+  "settings": {
+    "permissions": {
+      "defaultMode": "bypassPermissions"
+    }
+  }
+}
+```
+
+然后启用并运行：
+
 ```bash
 export CCC_SUPERVISOR=1
 ccc kimi

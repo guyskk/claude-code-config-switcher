@@ -81,6 +81,20 @@ Supervisor Mode is the most valuable feature of `ccc`. It automatically reviews 
 
 ### Enable Supervisor Mode
 
+**Important**: Supervisor Mode requires `bypassPermissions` to work without user confirmation for each hook call. Add this to your `ccc.json`:
+
+```json
+{
+  "settings": {
+    "permissions": {
+      "defaultMode": "bypassPermissions"
+    }
+  }
+}
+```
+
+Then enable and run:
+
 ```bash
 export CCC_SUPERVISOR=1
 ccc kimi
