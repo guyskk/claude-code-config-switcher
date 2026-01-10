@@ -59,16 +59,10 @@ func NewSupervisorLogger(supervisorID string) logger.Logger {
 		logger.StringField("supervisor_id", supervisorID),
 	)
 
-	supervisorLogger := &SupervisorLogger{
-		stderrLogger: stderrLogger,
+	return &SupervisorLogger{
+		stderrLogger: stderrLogger.With(logger.StringField("supervisor_id", supervisorID)),
 		fileLogger:   fileLogger,
 	}
-
-	// Wrap with supervisor_id field for all log entries
-	resultLogger := logger.Logger(supervisorLogger)
-	resultLogger = resultLogger.With(logger.StringField("supervisor_id", supervisorID))
-
-	return resultLogger
 }
 
 // Debug logs a debug message to both stderr and file (if enabled).
@@ -126,7 +120,6 @@ func (l *SupervisorLogger) With(fields ...logger.Field) logger.Logger {
 	}
 }
 
-// withFileLogger creates a new file logger with additional fields, if file logger is enabled.
 func (l *SupervisorLogger) withFileLogger(fields []logger.Field) logger.Logger {
 	if l.fileLogger == nil {
 		return nil
@@ -145,7 +138,6 @@ func (l *SupervisorLogger) WithError(err error) logger.Logger {
 	}
 }
 
-// withFileLoggerError creates a new file logger with error field, if file logger is enabled.
 func (l *SupervisorLogger) withFileLoggerError(err error) logger.Logger {
 	if l.fileLogger == nil {
 		return nil
@@ -164,15 +156,11 @@ func (l *SupervisorLogger) Close() error {
 
 	l.closed = true
 
-	// Close the file logger if it exists
-	if closer, ok := l.fileLogger.(interface{ Close() error }); ok {
-		return closer.Close()
+	if l.fileLogger != nil {
+		if closer, ok := l.fileLogger.(interface{ Close() error }); ok {
+			return closer.Close()
+		}
 	}
 
 	return nil
-}
-
-// IsFileLoggingEnabled returns true if file logging is enabled.
-func (l *SupervisorLogger) IsFileLoggingEnabled() bool {
-	return l.fileLogger != nil
 }
