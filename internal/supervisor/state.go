@@ -152,6 +152,15 @@ func ShouldContinue(sessionID string, max int) (bool, int, error) {
 	return count < max, count, nil
 }
 
+// GetLogFilePath returns the path to the supervisor log file for a given supervisorID.
+func GetLogFilePath(supervisorID string) (string, error) {
+	stateDir, err := GetStateDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get state directory: %w", err)
+	}
+	return filepath.Join(stateDir, fmt.Sprintf("supervisor-%s.log", supervisorID)), nil
+}
+
 // OpenLogFile opens and returns the supervisor log file for a given supervisorID.
 // It creates the state directory if it doesn't exist.
 // The caller is responsible for closing the file.
@@ -165,7 +174,11 @@ func OpenLogFile(supervisorID string) (*os.File, error) {
 		return nil, fmt.Errorf("failed to create state directory: %w", err)
 	}
 
-	logFilePath := filepath.Join(stateDir, fmt.Sprintf("supervisor-%s.log", supervisorID))
+	logFilePath, err := GetLogFilePath(supervisorID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get log file path: %w", err)
+	}
+
 	logFile, err := os.OpenFile(logFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open log file: %w", err)

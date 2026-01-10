@@ -137,8 +137,10 @@ func RunSupervisorHook(args []string) error {
 	)
 
 	// Step 12: Inform user about supervisor review
-	stateDir, _ := supervisor.GetStateDir()
-	logFilePath := fmt.Sprintf("%s/supervisor-%s.log", stateDir, supervisorID)
+	logFilePath, err := supervisor.GetLogFilePath(supervisorID)
+	if err != nil {
+		log.Warn("failed to get log file path", "error", err.Error())
+	}
 	log.Info("starting supervisor review", "log_file", logFilePath)
 
 	// Step 13: Run supervisor using Claude Agent SDK

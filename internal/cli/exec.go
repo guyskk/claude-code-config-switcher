@@ -49,11 +49,10 @@ func runClaude(cfg *config.Config, providerName string, claudeArgs []string, sup
 		defer logFile.Close()
 
 		// Show log file path to user
-		stateDir, err := supervisor.GetStateDir()
+		logPath, err := supervisor.GetLogFilePath(supervisorID)
 		if err != nil {
-			return fmt.Errorf("failed to get supervisor state dir: %w", err)
+			return fmt.Errorf("failed to get log file path: %w", err)
 		}
-		logPath := fmt.Sprintf("%s/supervisor-%s.log", stateDir, supervisorID)
 		fmt.Printf("Supervisor enabled: tail -f %s\n", logPath)
 
 		// Write initial log messages directly to file (not stderr)
