@@ -8,33 +8,15 @@
 
 系统 SHALL 能够解析命令行参数，识别命令、选项和参数。
 
-#### Scenario: 解析 --help
-- **WHEN** 用户执行 `ccc --help` 或 `ccc -h`
-- **THEN** 应当显示帮助信息
-- **AND** 退出码应当为 0
+#### Scenario: 解析 --supervisor
+- **WHEN** 用户执行 `ccc --supervisor`
+- **THEN** 应当识别 Supervisor Mode 选项
+- **AND** Command.Supervisor 应为 true
 
-#### Scenario: 解析 --version
-- **WHEN** 用户执行 `ccc --version` 或 `ccc -v`
-- **THEN** 应当显示版本信息
-- **AND** 格式应当为 "claude-code-config-switcher version {version} (built at {time})"
-- **AND** 退出码应当为 0
-
-#### Scenario: 解析提供商名称
-- **GIVEN** 配置中存在提供商 "kimi"
-- **WHEN** 用户执行 `ccc kimi`
+#### Scenario: 解析 --supervisor 与提供商
+- **WHEN** 用户执行 `ccc --supervisor kimi`
 - **THEN** 应当识别 "kimi" 为提供商名称
-- **AND** 应当切换到 kimi 提供商
-
-#### Scenario: 解析附加参数
-- **GIVEN** 用户执行 `ccc kimi /path/to/project`
-- **THEN** 应当识别 "kimi" 为提供商名称
-- **AND** 应当将 "/path/to/project" 作为参数传递给 claude
-
-#### Scenario: 无参数使用当前提供商
-- **GIVEN** current_provider 为 "glm"
-- **WHEN** 用户执行 `ccc`
-- **THEN** 应当使用 glm 提供商
-- **AND** 不切换提供商
+- **AND** Command.Supervisor 应为 true
 
 ### Requirement: 帮助信息显示
 
@@ -126,4 +108,105 @@
 - **THEN** 应当先调用 `provider.SwitchWithHook()` 生成配置
 - **AND** 应当使用 `syscall.Exec` 替换当前进程
 - **AND** 命令行不应包含 `--settings` 参数
+
+### Requirement: Claude 进程执行
+
+系统 SHALL 使用平台最优方式执行 claude 命令，在 Unix 系统上使用 exec 语义替换进程。
+
+#### Scenario: Unix 系统使用 syscall.Exec
+- **GIVEN** 系统为 Linux 或 macOS
+- **AND** claude 可执行文件存在于 PATH 中
+- **WHEN** ccc 切换到提供商并执行 claude
+- **THEN** ccc 进程应当被 claude 进程替换
+- **AND** 进程 PID 保持不变
+- **AND** 环境变量正确传递给 claude
+
+#### Scenario: Windows 系统使用子进程
+- **GIVEN** 系统为 Windows
+- **AND** claude 可执行文件存在于 PATH 中
+- **WHEN** ccc 切换到提供商并执行 claude
+- **THEN** ccc 应当创建子进程运行 claude
+- **AND** ccc 等待子进程结束
+- **AND** 环境变量正确传递给 claude
+
+#### Scenario: claude 不在 PATH 中
+- **GIVEN** claude 可执行文件不存在于 PATH 中
+- **WHEN** ccc 尝试执行 claude
+- **THEN** 应当返回错误 "claude not found in PATH"
+- **AND** 退出码应当为非零
+
+#### Scenario: 参数正确传递
+- **GIVEN** 用户执行 `ccc kimi /path/to/project --help`
+- **AND** claude_args 配置为 `["--verbose"]`
+- **WHEN** ccc 执行 claude
+- **THEN** claude 应当接收参数 `["--settings", "~/.claude/settings-kimi.json", "--verbose", "/path/to/project", "--help"]`
+
+#### Scenario: 环境变量正确设置
+- **GIVEN** 提供商配置包含 ANTHROPIC_AUTH_TOKEN
+- **WHEN** ccc 执行 claude
+- **THEN** claude 进程环境变量应当包含 ANTHROPIC_AUTH_TOKEN
+- **AND** 其他环境变量应当从父进程继承
+
+### Requirement: Settings 文件生成
+
+系统 SHALL 生成两种 settings 文件用于 Supervisor Mode。
+
+#### Scenario: 生成带 Hook 的 Settings
+- **WHEN** 启用 Supervisor Mode
+- **THEN** 应当生成 `settings-{provider}.json` 包含 Stop hook
+- **AND** hook 命令应使用 ccc 的绝对路径
+- **AND** hook 命令应包含正确的参数
+
+#### Scenario: 生成 Supervisor 专用 Settings
+- **WHEN** 启用 Supervisor Mode
+- **THEN** 应当生成 `settings-{provider}-supervisor.json`
+- **AND** 该文件不应包含任何 hooks 配置（避免递归）
+- **AND** 其他配置应与主 settings 相同
+
+#### Scenario: Hook 命令绝对路径
+- **GIVEN** ccc 可执行文件位于 `/usr/local/bin/ccc`
+- **WHEN** 生成 Stop hook 配置
+- **THEN** hook 命令应为 `/usr/local/bin/ccc supervisor-hook ...`
+- **AND** 应使用 `os.Executable()` 获取绝对路径
+
+### Requirement: 状态管理
+
+系统 SHALL 使用文件系统管理 Supervisor 状态。
+
+#### Scenario: 创建状态文件
+- **GIVEN** session_id 为 "abc123"
+- **AND** 状态目录为 `.claude/ccc`
+- **WHEN** supervisor-hook 首次被调用
+- **THEN** 应当创建 `.claude/ccc/supervisor-abc123.json`
+- **AND** 内容应为: `{"session_id":"abc123","count":1,...}`
+
+#### Scenario: 更新迭代次数
+- **GIVEN** 状态文件存在且 count 为 3
+- **WHEN** supervisor-hook 再次被调用
+- **THEN** 应当更新 count 为 4
+- **AND** 应当更新 updated_at 时间戳
+
+#### Scenario: 迭代次数达到限制
+- **GIVEN** 状态文件中 count 为 10
+- **WHEN** supervisor-hook 被调用
+- **THEN** 应当返回空（允许停止）
+- **AND** 不应再调用 Supervisor
+
+### Requirement: 输出保存
+
+系统 SHALL 保存 Supervisor 的原始输出到文件。
+
+#### Scenario: 保存 stream-json 输出
+- **GIVEN** session_id 为 "abc123"
+- **AND** Supervisor 输出多行 stream-json
+- **WHEN** supervisor-hook 处理输出
+- **THEN** 应当创建 `.claude/ccc/supervisor-abc123-output.jsonl`
+- **AND** 应当以 append 模式写入每一行
+- **AND** 每行应为原始 JSON
+
+#### Scenario: 原始输出到 stderr
+- **GIVEN** Supervisor 输出 text 类型消息
+- **WHEN** supervisor-hook 处理 stream-json
+- **THEN** 应当将 content 输出到 stderr
+- **AND** 不应影响 stdout 的 JSON 输出
 

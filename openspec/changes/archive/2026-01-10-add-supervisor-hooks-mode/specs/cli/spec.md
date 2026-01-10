@@ -1,29 +1,6 @@
 # cli Specification Delta
 
-## ADDED Requirements
-
-### Requirement: Supervisor Mode 参数
-
-系统 SHALL 支持 `--supervisor` 参数，启用 Supervisor 模式。
-
-#### Scenario: 启用 Supervisor Mode
-- **GIVEN** 配置中存在提供商 "kimi"
-- **WHEN** 用户执行 `ccc --supervisor`
-- **THEN** 应当使用当前提供商（或第一个提供商）
-- **AND** 应当生成包含 Stop hook 的 settings 文件
-- **AND** 应当启动 claude 使用该 settings 文件
-
-#### Scenario: Supervisor Mode 指定提供商
-- **GIVEN** 配置中存在提供商 "glm"
-- **WHEN** 用户执行 `ccc --supervisor glm`
-- **THEN** 应当使用 glm 提供商
-- **AND** 应当生成包含 Stop hook 的 settings 文件
-- **AND** 应当启动 claude 使用该 settings 文件
-
-#### Scenario: Supervisor Mode 传递参数
-- **GIVEN** 用户执行 `ccc --supervisor kimi /path/to/project --help`
-- **THEN** claude 应当接收参数 `["/path/to/project", "--help"]`
-- **AND** Stop hook 应当被正确配置
+## MODIFIED Requirements
 
 ### Requirement: supervisor-hook 子命令
 
@@ -66,6 +43,8 @@
 - **WHEN** supervisor-hook 处理结果
 - **THEN** 应当输出 JSON: `{"decision":"block","reason":"需要补充..."}`
 - **AND** 退出码应为 0
+
+## ADDED Requirements
 
 ### Requirement: Settings 文件生成
 
