@@ -21,14 +21,21 @@ Unlike `ralph-claude-code`, Supervisor Mode uses a strict six-step review framew
 
 ### 1. Install
 
+**Option A: One-line install (Linux / macOS)**
+
 ```bash
-# Linux / macOS (auto-detect platform)
 OS=$(uname -s | tr '[:upper:]' '[:lower:]'); ARCH=$(uname -m | sed -e 's/x86_64/amd64/' -e 's/aarch64/arm64/'); curl -LO "https://github.com/guyskk/claude-code-config-switcher/releases/latest/download/ccc-${OS}-${ARCH}" && sudo install -m 755 "ccc-${OS}-${ARCH}" /usr/local/bin/ccc && rm "ccc-${OS}-${ARCH}" && ccc --version
 ```
 
+**Option B: Download from [Releases](https://github.com/guyskk/claude-code-config-switcher/releases)**
+
+Download the binary for your platform (`ccc-darwin-arm64`, `ccc-linux-amd64`, etc.) and install to `/usr/local/bin/`.
+
 ### 2. Configure
 
-Create `~/.claude/ccc.json`:
+Create `~/.claude/ccc.json`. Choose your mode:
+
+**Option A: Basic Mode** (`acceptEdits` - prompts for confirmation)
 
 ```json
 {
@@ -58,10 +65,39 @@ Create `~/.claude/ccc.json`:
 }
 ```
 
-> **Note**: This is a minimal configuration to get you started quickly.
-> - `current_provider` is auto-managed by `ccc` (set to your preferred provider)
-> - For complete configuration options including advanced settings, see the [Configuration](#configuration) section below
-> - **If planning to use Supervisor Mode**, change `"defaultMode": "acceptEdits"` to `"defaultMode": "bypassPermissions"` (see [Supervisor Mode](#supervisor-mode-recommended) below for details)
+**Option B: Supervisor Mode** (`bypassPermissions` - automatic review, see [below](#supervisor-mode-recommended) for details)
+
+> **Security Note**: `bypassPermissions` allows Claude Code to execute tools without confirmation. Only use this in trusted environments.
+
+```json
+{
+  "settings": {
+    "permissions": {
+      "allow": ["Edit", "MultiEdit", "Write", "WebFetch", "WebSearch"],
+      "defaultMode": "bypassPermissions"
+    }
+  },
+  "current_provider": "kimi",
+  "providers": {
+    "kimi": {
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.moonshot.cn/anthropic",
+        "ANTHROPIC_AUTH_TOKEN": "YOUR_API_KEY_HERE",
+        "ANTHROPIC_MODEL": "kimi-k2-thinking"
+      }
+    },
+    "glm": {
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://open.bigmodel.cn/api/anthropic",
+        "ANTHROPIC_AUTH_TOKEN": "YOUR_API_KEY_HERE",
+        "ANTHROPIC_MODEL": "glm-4.7"
+      }
+    }
+  }
+}
+```
+
+> **Note**: `current_provider` is auto-managed by `ccc`. For complete configuration options including advanced settings, see the [Configuration](#configuration) section below.
 
 ### 3. Use
 
