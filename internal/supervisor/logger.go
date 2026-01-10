@@ -86,9 +86,9 @@ func (l *SupervisorLogger) Handle(ctx context.Context, r slog.Record) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	// Log start message on first log call
+	// Log start message on first log call, using the original record's timestamp
 	if !l.loggedStart && l.supervisorID != "" {
-		l.logStartMessage()
+		l.logStartMessage(r.Time)
 		l.loggedStart = true
 	}
 
@@ -103,10 +103,11 @@ func (l *SupervisorLogger) Handle(ctx context.Context, r slog.Record) error {
 }
 
 // logStartMessage logs the initial supervisor start message with supervisor ID.
-func (l *SupervisorLogger) logStartMessage() {
+// It uses the provided timestamp (from the first log call) for accurate ordering.
+func (l *SupervisorLogger) logStartMessage(ts time.Time) {
 	startMsg := fmt.Sprintf("Supervisor started: supervisor_id=%s", l.supervisorID)
-	// Create a simple record for the start message
-	r := slog.NewRecord(time.Now(), slog.LevelInfo, startMsg, 0)
+	// Create a record for the start message using the provided timestamp
+	r := slog.NewRecord(ts, slog.LevelInfo, startMsg, 0)
 	l.stderrHandler.Handle(context.Background(), r)
 	if l.fileHandler != nil {
 		l.fileHandler.Handle(context.Background(), r)
