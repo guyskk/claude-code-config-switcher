@@ -68,6 +68,8 @@ Create `~/.claude/ccc.json`:
 }
 ```
 
+> **Security Warning**: `bypassPermissions` allows Claude Code to execute tools without confirmation. Only use this in trusted environments.
+>
 > **Note**: `current_provider` is auto-managed by `ccc`. For full configuration options, see [Configuration](#configuration).
 
 ### 3. Use
@@ -84,6 +86,18 @@ ccc glm --help
 ccc kimi /path/to/project
 ```
 
+### 4. Validate (Optional)
+
+Verify your provider configuration:
+
+```bash
+# Validate current provider
+ccc validate
+
+# Validate all providers
+ccc validate --all
+```
+
 ---
 
 ## Supervisor Mode (Recommended)
@@ -92,10 +106,17 @@ Supervisor Mode is the most valuable feature of `ccc`. It automatically reviews 
 
 ### Enable Supervisor Mode
 
-Set `supervisor.enabled: true` in your `ccc.json` (see Quick Start above), or use the environment variable:
+**Default (config file)**: Set `supervisor.enabled: true` in your `ccc.json` (see Quick Start above).
+
+**Temporary override**: Use the `CCC_SUPERVISOR` environment variable to temporarily override the config:
 
 ```bash
+# Force enable (even if config.enabled = false)
 export CCC_SUPERVISOR=1
+ccc kimi
+
+# Force disable (even if config.enabled = true)
+export CCC_SUPERVISOR=0
 ccc kimi
 ```
 
@@ -306,11 +327,15 @@ Can be overridden with `CCC_SUPERVISOR=1` environment variable.
 
 ### Custom Supervisor Prompt
 
-Create `~/.claude/SUPERVISOR.md` to customize the Supervisor prompt. See `internal/cli/supervisor_prompt_default.md` for the default prompt.
+Create `~/.claude/SUPERVISOR.md` to customize the Supervisor prompt. This file overrides the default review behavior with your own instructions.
 
 ### Automatic Migration
 
-If you have an existing `~/.claude/settings.json`, `ccc` will prompt to migrate it on first run.
+If you have an existing `~/.claude/settings.json`, `ccc` will prompt to migrate it on first run:
+
+- Your `env` fields are moved to `providers.default.env`
+- Other fields become the base `settings` template
+- Your original file is not modified
 
 ---
 

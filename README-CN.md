@@ -68,6 +68,8 @@ OS=$(uname -s | tr '[:upper:]' '[:lower:]'); ARCH=$(uname -m | sed -e 's/x86_64/
 }
 ```
 
+> **安全警告**：`bypassPermissions` 允许 Claude Code 无需确认即可执行工具。仅在受信任的环境中使用。
+>
 > **注意**：`current_provider` 由 `ccc` 自动管理。完整配置选项请参阅[配置](#配置)章节。
 
 ### 3. 使用
@@ -84,6 +86,18 @@ ccc glm --help
 ccc kimi /path/to/project
 ```
 
+### 4. 验证（可选）
+
+验证提供商配置：
+
+```bash
+# 验证当前提供商
+ccc validate
+
+# 验证所有提供商
+ccc validate --all
+```
+
 ---
 
 ## Supervisor 模式（推荐）
@@ -92,10 +106,17 @@ Supervisor 模式是 `ccc` 最有价值的特性。它会在 Agent 每次停止�
 
 ### 启用 Supervisor 模式
 
-在 `ccc.json` 中设置 `supervisor.enabled: true`（参见上方快速开始），或使用环境变量：
+**默认方式（配置文件）**：在 `ccc.json` 中设置 `supervisor.enabled: true`（参见上方快速开始）。
+
+**临时覆盖**：使用 `CCC_SUPERVISOR` 环境变量临时覆盖配置：
 
 ```bash
+# 强制启用（即使配置中 enabled = false）
 export CCC_SUPERVISOR=1
+ccc kimi
+
+# 强制禁用（即使配置中 enabled = true）
+export CCC_SUPERVISOR=0
 ccc kimi
 ```
 
@@ -306,11 +327,15 @@ ccc --debug --verbose
 
 ### 自定义 Supervisor 提示词
 
-创建 `~/.claude/SUPERVISOR.md` 来自定义 Supervisor 提示词。默认提示词参见 `internal/cli/supervisor_prompt_default.md`。
+创建 `~/.claude/SUPERVISOR.md` 来自定义 Supervisor 提示词。此文件会使用你自己的指令覆盖默认的审查行为。
 
 ### 自动迁移
 
-如果你已有 `~/.claude/settings.json`，首次运行时 `ccc` 会提示迁移。
+如果你已有 `~/.claude/settings.json`，首次运行时 `ccc` 会提示迁移：
+
+- 你的 `env` 字段会移动到 `providers.default.env`
+- 其他字段成为基础 `settings` 模板
+- 原始文件不会被修改
 
 ---
 
