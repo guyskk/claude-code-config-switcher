@@ -287,3 +287,195 @@ func TestOutputDecision_JSONFormat(t *testing.T) {
 		})
 	}
 }
+
+// TestSupervisorLogger_LogLevels verifies that different log levels produce correct output.
+func TestSupervisorLogger_LogLevels(t *testing.T) {
+	tempDir := t.TempDir()
+
+	origGetStateDir := getStateDirFunc
+	getStateDirFunc = func() (string, error) {
+		return tempDir, nil
+	}
+	defer func() { getStateDirFunc = origGetStateDir }()
+
+	supervisorID := "test-levels"
+	log := NewSupervisorLogger(supervisorID)
+
+	// Test all log levels with structured attributes
+	log.Debug("debug message", "debug_key", "debug_value", "count", 1)
+	log.Info("info message", "info_key", "info_value", "count", 2)
+	log.Warn("warning message", "warn_key", "warn_value", "count", 3)
+	log.Error("error message", "error_key", "error_value", "count", 4)
+
+	// Close the logger
+	if handler, ok := log.Handler().(*SupervisorLogger); ok {
+		handler.Close()
+	}
+
+	// Verify log file content
+	logFilePath := filepath.Join(tempDir, "supervisor-"+supervisorID+".log")
+	content, err := os.ReadFile(logFilePath)
+	if err != nil {
+		t.Fatalf("failed to read log file: %v", err)
+	}
+
+	logContent := string(content)
+
+	// Verify each log level message is present
+	tests := []struct {
+		level      string
+		message    string
+		key        string
+		value      string
+		countValue string
+	}{
+		{"DEBUG", "debug message", "debug_key", "debug_value", "count=1"},
+		{"INFO", "info message", "info_key", "info_value", "count=2"},
+		{"WARN", "warning message", "warn_key", "warn_value", "count=3"},
+		{"ERROR", "error message", "error_key", "error_value", "count=4"},
+	}
+
+	for _, tt := range tests {
+		// Verify log level is present
+		if !strings.Contains(logContent, tt.level) {
+			t.Errorf("log file missing level %s", tt.level)
+		}
+		// Verify message is present
+		if !strings.Contains(logContent, tt.message) {
+			t.Errorf("log file missing message %q", tt.message)
+		}
+		// Verify key-value pairs are present
+		if !strings.Contains(logContent, tt.key+"="+tt.value) {
+			t.Errorf("log file missing %s=%s", tt.key, tt.value)
+		}
+		// Verify count attribute
+		if !strings.Contains(logContent, tt.countValue) {
+			t.Errorf("log file missing %s", tt.countValue)
+		}
+	}
+}
+
+// TestSupervisorLogger_StructuredLogging verifies structured logging format.
+func TestSupervisorLogger_StructuredLogging(t *testing.T) {
+	tempDir := t.TempDir()
+
+	origGetStateDir := getStateDirFunc
+	getStateDirFunc = func() (string, error) {
+		return tempDir, nil
+	}
+	defer func() { getStateDirFunc = origGetStateDir }()
+
+	supervisorID := "test-structured"
+	log := NewSupervisorLogger(supervisorID)
+
+	// Test various attribute types
+	log.Info("test attributes",
+		"string_attr", "string_value",
+		"int_attr", 42,
+		"bool_attr", true,
+		"float_attr", 3.14,
+	)
+
+	// Close the logger
+	if handler, ok := log.Handler().(*SupervisorLogger); ok {
+		handler.Close()
+	}
+
+	// Verify log file content
+	logFilePath := filepath.Join(tempDir, "supervisor-"+supervisorID+".log")
+	content, err := os.ReadFile(logFilePath)
+	if err != nil {
+		t.Fatalf("failed to read log file: %v", err)
+	}
+
+	logContent := string(content)
+
+	// Verify all attributes are present in the log
+	expectedAttrs := []string{
+		"string_attr=string_value",
+		"int_attr=42",
+		"bool_attr=true",
+		"float_attr=3.14",
+	}
+
+	for _, attr := range expectedAttrs {
+		if !strings.Contains(logContent, attr) {
+			t.Errorf("log file missing attribute %s", attr)
+		}
+	}
+
+	// Verify message is present
+	if !strings.Contains(logContent, "test attributes") {
+		t.Error("log file missing message")
+	}
+}
+
+// TestSupervisorLogger_OutputDecisionLogging verifies that OutputDecision logs correctly.
+func TestSupervisorLogger_OutputDecisionLogging(t *testing.T) {
+	tests := []struct {
+		name      string
+		allowStop bool
+		feedback  string
+		wantLog   string
+	}{
+		{
+			name:      "allow stop",
+			allowStop: true,
+			feedback:  "",
+			wantLog:   "supervisor output: allow stop",
+		},
+		{
+			name:      "block with feedback",
+			allowStop: false,
+			feedback:  "needs improvement",
+			wantLog:   "supervisor output: not allow stop",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tempDir := t.TempDir()
+
+			origGetStateDir := getStateDirFunc
+			getStateDirFunc = func() (string, error) {
+				return tempDir, nil
+			}
+			defer func() { getStateDirFunc = origGetStateDir }()
+
+			supervisorID := "test-output-decision"
+			log := NewSupervisorLogger(supervisorID)
+			logFilePath := filepath.Join(tempDir, "supervisor-"+supervisorID+".log")
+
+			// Call OutputDecision
+			if err := OutputDecision(log, tt.allowStop, tt.feedback); err != nil {
+				t.Fatalf("OutputDecision failed: %v", err)
+			}
+
+			// Close the logger
+			if handler, ok := log.Handler().(*SupervisorLogger); ok {
+				handler.Close()
+			}
+
+			// Verify log file content
+			content, err := os.ReadFile(logFilePath)
+			if err != nil {
+				t.Fatalf("failed to read log file: %v", err)
+			}
+
+			logContent := string(content)
+
+			// Verify the log message is present
+			if !strings.Contains(logContent, tt.wantLog) {
+				t.Errorf("log file missing expected message %q, got: %s", tt.wantLog, logContent)
+			}
+
+			// For block case, verify feedback is logged
+			if !tt.allowStop && tt.feedback != "" {
+				// slog uses quoted strings for string values
+				if !strings.Contains(logContent, `feedback="`+tt.feedback+`"`) {
+					t.Errorf("log file missing feedback, got: %s", logContent)
+				}
+			}
+		})
+	}
+}

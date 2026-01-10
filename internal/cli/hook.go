@@ -112,12 +112,10 @@ func RunSupervisorHook(args []string) error {
 		log.Warn("failed to check state", "error", err.Error())
 	}
 	if !shouldContinue {
-		log.Warn("max iterations reached, allowing stop",
+		log.Info("max iterations reached, allowing stop",
 			"count", count,
 			"max", maxIterations,
 		)
-		fmt.Fprintf(os.Stderr, "\n%s\n[STOP] Max iterations (%d) reached, allowing stop\n%s\n\n",
-			strings.Repeat("=", 60), count, strings.Repeat("=", 60))
 		return supervisor.OutputDecision(log, true, "")
 	}
 
@@ -130,7 +128,6 @@ func RunSupervisorHook(args []string) error {
 			"count", newCount,
 			"max", maxIterations,
 		)
-		fmt.Fprintf(os.Stderr, "Iteration count: %d/%d\n", newCount, maxIterations)
 	}
 
 	// Step 11: Get default supervisor prompt (hardcoded)
@@ -140,11 +137,9 @@ func RunSupervisorHook(args []string) error {
 	)
 
 	// Step 12: Inform user about supervisor review
-	log.Info("starting supervisor review")
 	stateDir, _ := supervisor.GetStateDir()
 	logFilePath := fmt.Sprintf("%s/supervisor-%s.log", stateDir, supervisorID)
-	fmt.Fprintf(os.Stderr, "\n[SUPERVISOR] Reviewing work...\n")
-	fmt.Fprintf(os.Stderr, "See log file for details: %s\n\n", logFilePath)
+	log.Info("starting supervisor review", "log_file", logFilePath)
 
 	// Step 13: Run supervisor using Claude Agent SDK
 	result, err := runSupervisorWithSDK(context.Background(), sessionID, supervisorPrompt, supervisorCfg.Timeout(), log)
@@ -154,11 +149,10 @@ func RunSupervisorHook(args []string) error {
 	}
 
 	log.Info("supervisor review completed")
-	fmt.Fprintf(os.Stderr, "\n%s\n", strings.Repeat("=", 60))
 
 	// Step 14: Output result based on AllowStop decision
 	if result == nil {
-		fmt.Fprintf(os.Stderr, "[RESULT] No supervisor result found, allowing stop\n")
+		log.Info("no supervisor result found, allowing stop")
 		return supervisor.OutputDecision(log, true, "")
 	}
 
@@ -171,17 +165,12 @@ func RunSupervisorHook(args []string) error {
 	}
 
 	if result.AllowStop {
-		fmt.Fprintf(os.Stderr, "[RESULT] Work satisfactory, allowing stop\n")
+		log.Info("work satisfactory, allowing stop")
 		return supervisor.OutputDecision(log, true, "")
 	}
 
 	// Block with feedback
-	feedback := strings.TrimSpace(result.Feedback)
-	if feedback == "" {
-		feedback = "Please continue completing the task"
-	}
-	fmt.Fprintf(os.Stderr, "[RESULT] Work not satisfactory\nFeedback: %s\nAgent will continue working based on feedback\n",
-		feedback)
+	log.Info("work not satisfactory, agent will continue", "feedback", result.Feedback)
 	return supervisor.OutputDecision(log, false, result.Feedback)
 }
 
@@ -250,12 +239,12 @@ func runSupervisorWithSDK(ctx context.Context, sessionID, prompt string, timeout
 
 	// Extract and parse result from ResultMessage
 	if resultMessage == nil {
-		log.Warn("no result message received from SDK")
+		log.Error("no result message received from SDK")
 		return nil, fmt.Errorf("no result message received from SDK")
 	}
 
 	if resultMessage.Result == nil {
-		log.Warn("result message has no Result field")
+		log.Error("result message has no Result field")
 		return nil, fmt.Errorf("result message has no Result field")
 	}
 
