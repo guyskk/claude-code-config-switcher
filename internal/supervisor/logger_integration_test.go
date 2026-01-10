@@ -68,10 +68,8 @@ func TestSupervisorLogger_Output(t *testing.T) {
 		t.Error("log file missing 'error message'")
 	}
 
-	// Verify supervisor_id is in the log
-	if !strings.Contains(logContent, "supervisor_id="+supervisorID) {
-		t.Errorf("log file missing supervisor_id=%s", supervisorID)
-	}
+	// Note: supervisor_id is no longer automatically added to logs.
+	// Callers can explicitly include it if needed (e.g., in exec.go).
 
 	// Verify log file contains proper number of lines (each log should have one line)
 	lines := strings.Split(strings.TrimSpace(logContent), "\n")

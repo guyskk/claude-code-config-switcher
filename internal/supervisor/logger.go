@@ -21,8 +21,6 @@ type SupervisorLogger struct {
 	logFile       *os.File // Track the file for proper cleanup
 	mu            sync.Mutex
 	closed        bool
-	supervisorID  string // Store supervisor ID for initial log message
-	loggedStart   bool   // Track if we've logged the start message
 }
 
 // NewSupervisorLogger creates a new slog.Logger with SupervisorHandler.
@@ -67,8 +65,6 @@ func NewSupervisorLogger(supervisorID string) *slog.Logger {
 		stderrHandler: stderrHandler,
 		fileHandler:   fileHandler,
 		logFile:       logFile,
-		supervisorID:  supervisorID,
-		loggedStart:   false,
 	}
 
 	return slog.New(handler)
@@ -86,12 +82,6 @@ func (l *SupervisorLogger) Handle(ctx context.Context, r slog.Record) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	// Log start message on first log call, using the original record's timestamp
-	if !l.loggedStart && l.supervisorID != "" {
-		l.logStartMessage(r.Time)
-		l.loggedStart = true
-	}
-
 	// Always log to stderr
 	l.stderrHandler.Handle(ctx, r)
 
@@ -100,18 +90,6 @@ func (l *SupervisorLogger) Handle(ctx context.Context, r slog.Record) error {
 		l.fileHandler.Handle(ctx, r)
 	}
 	return nil
-}
-
-// logStartMessage logs the initial supervisor start message with supervisor ID.
-// It uses the provided timestamp (from the first log call) for accurate ordering.
-func (l *SupervisorLogger) logStartMessage(ts time.Time) {
-	startMsg := fmt.Sprintf("Supervisor started: supervisor_id=%s", l.supervisorID)
-	// Create a record for the start message using the provided timestamp
-	r := slog.NewRecord(ts, slog.LevelInfo, startMsg, 0)
-	l.stderrHandler.Handle(context.Background(), r)
-	if l.fileHandler != nil {
-		l.fileHandler.Handle(context.Background(), r)
-	}
 }
 
 // WithAttrs returns a new Handler with the given attributes.
@@ -123,8 +101,6 @@ func (l *SupervisorLogger) WithAttrs(attrs []slog.Attr) slog.Handler {
 		stderrHandler: l.stderrHandler.WithAttrs(attrs),
 		fileHandler:   l.withFileHandlerAttrs(attrs),
 		logFile:       l.logFile,
-		supervisorID:  l.supervisorID,
-		loggedStart:   l.loggedStart,
 	}
 }
 
@@ -144,8 +120,6 @@ func (l *SupervisorLogger) WithGroup(name string) slog.Handler {
 		stderrHandler: l.stderrHandler.WithGroup(name),
 		fileHandler:   l.withFileHandlerGroup(name),
 		logFile:       l.logFile,
-		supervisorID:  l.supervisorID,
-		loggedStart:   l.loggedStart,
 	}
 }
 

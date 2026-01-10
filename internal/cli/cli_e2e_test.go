@@ -403,8 +403,7 @@ func TestE2E_SupervisorLogFormat(t *testing.T) {
 	// Format: 2026-01-10T16:20:55.995859698+08:00 INFO message
 	expectedPatterns := []string{
 		"Supervisor enabled: tail -f",
-		"INFO Supervisor started: supervisor_id=",
-		"INFO Supervisor hook enabled supervisor_id=",
+		"INFO Supervisor started supervisor_id=",
 		"INFO Waiting for Stop hook to trigger",
 	}
 

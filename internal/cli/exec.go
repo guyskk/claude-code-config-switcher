@@ -49,7 +49,7 @@ func runClaude(cfg *config.Config, providerName string, claudeArgs []string, sup
 
 		// Create supervisor logger and log initial messages
 		log := supervisor.NewSupervisorLogger(supervisorID)
-		log.Info("Supervisor hook enabled", "supervisor_id", supervisorID)
+		log.Info("Supervisor started", "supervisor_id", supervisorID)
 		log.Info("Waiting for Stop hook to trigger")
 	}
 
