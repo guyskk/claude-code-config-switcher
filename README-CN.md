@@ -1,6 +1,6 @@
 # ccc - Claude Code 监督器
 
-[English](README.md)
+[English](README.md) | [中文文档](README-CN.md)
 
 ## 为什么选择 ccc？
 
