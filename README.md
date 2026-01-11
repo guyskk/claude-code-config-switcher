@@ -13,7 +13,7 @@
 1. **Supervisor Mode** ⭐ - Automatic task review that ensures high-quality, deliverable work (most valuable)
 2. **Seamless Provider Switching** - Switch between Kimi, GLM, MiniMax, and other providers with one command
 
-Unlike `ralph-claude-code`, Supervisor Mode uses a strict six-step review framework that catches common issues like "asking without doing", "planning without executing", and "missing integration tests".
+**Better than `ralph-claude-code`**: Supervisor Mode uses a stop-hook triggered review with a strict six-step framework that significantly improves task completion and quality. Unlike `ralph`'s signal-based exit detection (counting "done" signals or test loops), ccc's Supervisor forks the full session context and evaluates actual work quality—requiring self-review, integration tests, and deployment-ready code. This prevents fake completions where AI claims "done" but the result has poor quality or unresolved issues.
 
 ---
 
