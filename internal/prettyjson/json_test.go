@@ -8,11 +8,11 @@ import (
 
 func TestMarshal(t *testing.T) {
 	tests := []struct {
-		name            string
-		input           interface{}
-		expected        string
-		mustContain     []string // Optional: check that result contains these strings
-		mustNotContain  []string // Optional: check that result does not contain these
+		name           string
+		input          interface{}
+		expected       string
+		mustContain    []string // Optional: check that result contains these strings
+		mustNotContain []string // Optional: check that result does not contain these
 	}{
 		{
 			name:     "simple object",

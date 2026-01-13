@@ -423,10 +423,10 @@ func TestParseSupervisorHookArgs(t *testing.T) {
 
 func TestParse_SupervisorHookCommand(t *testing.T) {
 	tests := []struct {
-		name             string
-		args             []string
-		wantHook         bool
-		wantSessionID    string
+		name          string
+		args          []string
+		wantHook      bool
+		wantSessionID string
 	}{
 		{
 			name:          "supervisor-hook without args",

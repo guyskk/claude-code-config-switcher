@@ -979,8 +979,8 @@ func TestE2E_SupervisorOutputDecisionJSON(t *testing.T) {
 		{
 			name: "bypass scenario - allowStop=true, decision omitted",
 			envVars: []string{
-				"CCC_SUPERVISOR_HOOK=1",   // Bypasses external claude call
-				"CCC_SUPERVISOR=1",        // Enable supervisor mode
+				"CCC_SUPERVISOR_HOOK=1", // Bypasses external claude call
+				"CCC_SUPERVISOR=1",      // Enable supervisor mode
 				"CCC_SUPERVISOR_ID=test-supervisor-bypass-1",
 			},
 			input:            `{"session_id":"test-session-123","stop_hook_active":true}`,
@@ -991,7 +991,7 @@ func TestE2E_SupervisorOutputDecisionJSON(t *testing.T) {
 		{
 			name: "not in supervisor mode - allowStop=true, decision omitted",
 			envVars: []string{
-				"CCC_SUPERVISOR=0",        // NOT in supervisor mode
+				"CCC_SUPERVISOR=0", // NOT in supervisor mode
 				"CCC_SUPERVISOR_ID=test-supervisor-bypass-2",
 			},
 			input:            `{"session_id":"test-session-456","stop_hook_active":true}`,
