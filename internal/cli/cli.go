@@ -25,16 +25,16 @@ var BuildTime = "unknown"
 
 // Command represents a parsed CLI command.
 type Command struct {
-	Version             bool
-	Help                bool
-	Provider            string
-	ClaudeArgs          []string
-	Validate            bool
-	ValidateOpts        *ValidateCommand
-	SupervisorHook      bool
-	SupervisorHookOpts  *SupervisorHookCommand
-	SupervisorMode      bool
-	SupervisorModeOpts  *SupervisorModeCommand
+	Version            bool
+	Help               bool
+	Provider           string
+	ClaudeArgs         []string
+	Validate           bool
+	ValidateOpts       *ValidateCommand
+	SupervisorHook     bool
+	SupervisorHookOpts *SupervisorHookCommand
+	SupervisorMode     bool
+	SupervisorModeOpts *SupervisorModeCommand
 }
 
 // ValidateCommand represents options for the validate command.
@@ -143,7 +143,7 @@ func parseSupervisorModeArgs(args []string) *SupervisorModeCommand {
 		opts.Enabled = true
 	case "off", "false", "0", "disable":
 		opts.Enabled = false
-	// Default to true for any other value
+		// Default to true for any other value
 	}
 
 	return opts

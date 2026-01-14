@@ -98,6 +98,7 @@ Supervisor 模式是 `ccc` 最有价值的特性。它会在 Agent 每次停止�
 ### 如何使用
 
 1. 启动 `ccc` 并选择提供商：
+
    ```bash
    ccc glm
    ```
@@ -105,7 +106,8 @@ Supervisor 模式是 `ccc` 最有价值的特性。它会在 Agent 每次停止�
 2. 与 Agent 沟通确认需求和方案
 
 3. 使用斜杠命令启用 Supervisor 模式：
-   ```
+
+   ```text
    /supervisor 好，开始执行
    ```
 

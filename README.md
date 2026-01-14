@@ -98,6 +98,7 @@ Supervisor Mode is the most valuable feature of `ccc`. It automatically reviews 
 ### How to Use
 
 1. Start `ccc` with your provider:
+
    ```bash
    ccc glm
    ```
@@ -105,7 +106,8 @@ Supervisor Mode is the most valuable feature of `ccc`. It automatically reviews 
 2. Communicate with the Agent to confirm requirements and approach
 
 3. Enable Supervisor Mode using the slash command:
-   ```
+
+   ```text
    /supervisor OK, start executing
    ```
 
