@@ -151,45 +151,6 @@ func TestIntegrationFullFlow(t *testing.T) {
 	}
 }
 
-func TestIntegrationMigrationFlow(t *testing.T) {
-	tmpDir, cleanup := setupIntegrationTest(t)
-	defer cleanup()
-
-	// Create old settings.json
-	oldSettingsPath := filepath.Join(tmpDir, "settings.json")
-	oldSettings := map[string]interface{}{
-		"permissions": map[string]interface{}{
-			"allow": []interface{}{"*"},
-		},
-		"alwaysThinkingEnabled": true,
-		"env": map[string]interface{}{
-			"ANTHROPIC_BASE_URL":   "https://api.old.com",
-			"ANTHROPIC_AUTH_TOKEN": "sk-old",
-		},
-	}
-
-	data, err := json.MarshalIndent(oldSettings, "", "  ")
-	if err != nil {
-		t.Fatalf("Failed to marshal: %v", err)
-	}
-	if err := os.WriteFile(oldSettingsPath, data, 0644); err != nil {
-		t.Fatalf("Failed to write: %v", err)
-	}
-
-	// Remove ccc.json to trigger migration check
-	cccPath := filepath.Join(tmpDir, "ccc.json")
-	os.Remove(cccPath)
-
-	// Check that old settings exist
-	if _, err := os.Stat(oldSettingsPath); os.IsNotExist(err) {
-		t.Fatal("Old settings should exist")
-	}
-
-	// Note: We can't fully test migration in automated tests
-	// because it requires user input. The migration package
-	// has its own comprehensive tests.
-}
-
 func TestIntegrationConfigBackwardCompatible(t *testing.T) {
 	tmpDir, cleanup := setupIntegrationTest(t)
 	defer cleanup()

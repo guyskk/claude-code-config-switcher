@@ -510,16 +510,14 @@ func TestE2E_SupervisorConfigLoading(t *testing.T) {
 		name             string
 		configJSON       string
 		expectSupervisor bool // whether supervisor section should exist in output
-		expectEnabled    bool // expected enabled value
 		expectMaxIter    int  // expected max_iterations value
 		expectTimeout    int  // expected timeout_seconds value
 	}{
 		{
-			name: "supervisor_enabled_at_top_level",
+			name: "supervisor_full_config",
 			configJSON: `{
 				"settings": {"permissions": {"defaultMode": "acceptEdits"}},
 				"supervisor": {
-					"enabled": true,
 					"max_iterations": 15,
 					"timeout_seconds": 300
 				},
@@ -529,12 +527,11 @@ func TestE2E_SupervisorConfigLoading(t *testing.T) {
 				}
 			}`,
 			expectSupervisor: true,
-			expectEnabled:    true,
 			expectMaxIter:    15,
 			expectTimeout:    300,
 		},
 		{
-			name: "supervisor_disabled_by_default",
+			name: "supervisor_defaults",
 			configJSON: `{
 				"settings": {"permissions": {"defaultMode": "acceptEdits"}},
 				"current_provider": "test1",
@@ -543,24 +540,6 @@ func TestE2E_SupervisorConfigLoading(t *testing.T) {
 				}
 			}`,
 			expectSupervisor: true,
-			expectEnabled:    false,
-			expectMaxIter:    20,  // defaults
-			expectTimeout:    600, // defaults
-		},
-		{
-			name: "supervisor_partial_config_only_enabled",
-			configJSON: `{
-				"settings": {"permissions": {"defaultMode": "acceptEdits"}},
-				"supervisor": {
-					"enabled": true
-				},
-				"current_provider": "test1",
-				"providers": {
-					"test1": {"env": {"ANTHROPIC_AUTH_TOKEN": "test"}}
-				}
-			}`,
-			expectSupervisor: true,
-			expectEnabled:    true,
 			expectMaxIter:    20,  // defaults
 			expectTimeout:    600, // defaults
 		},
@@ -577,7 +556,6 @@ func TestE2E_SupervisorConfigLoading(t *testing.T) {
 				}
 			}`,
 			expectSupervisor: true,
-			expectEnabled:    false, // default
 			expectMaxIter:    5,
 			expectTimeout:    600, // default
 		},
