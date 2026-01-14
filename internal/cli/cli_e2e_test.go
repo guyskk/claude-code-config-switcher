@@ -509,18 +509,15 @@ func TestE2E_SupervisorConfigLoading(t *testing.T) {
 	tests := []struct {
 		name             string
 		configJSON       string
-		expectSupervisor bool   // whether supervisor section should exist in output
-		expectEnabled    bool   // expected enabled value
-		expectMaxIter    int    // expected max_iterations value
-		expectTimeout    int    // expected timeout_seconds value
-		envVar           string // optional CCC_SUPERVISOR env var
+		expectSupervisor bool // whether supervisor section should exist in output
+		expectMaxIter    int  // expected max_iterations value
+		expectTimeout    int  // expected timeout_seconds value
 	}{
 		{
-			name: "supervisor_enabled_at_top_level",
+			name: "supervisor_full_config",
 			configJSON: `{
 				"settings": {"permissions": {"defaultMode": "acceptEdits"}},
 				"supervisor": {
-					"enabled": true,
 					"max_iterations": 15,
 					"timeout_seconds": 300
 				},
@@ -530,12 +527,11 @@ func TestE2E_SupervisorConfigLoading(t *testing.T) {
 				}
 			}`,
 			expectSupervisor: true,
-			expectEnabled:    true,
 			expectMaxIter:    15,
 			expectTimeout:    300,
 		},
 		{
-			name: "supervisor_disabled_by_default",
+			name: "supervisor_defaults",
 			configJSON: `{
 				"settings": {"permissions": {"defaultMode": "acceptEdits"}},
 				"current_provider": "test1",
@@ -544,24 +540,6 @@ func TestE2E_SupervisorConfigLoading(t *testing.T) {
 				}
 			}`,
 			expectSupervisor: true,
-			expectEnabled:    false,
-			expectMaxIter:    20,  // defaults
-			expectTimeout:    600, // defaults
-		},
-		{
-			name: "supervisor_partial_config_only_enabled",
-			configJSON: `{
-				"settings": {"permissions": {"defaultMode": "acceptEdits"}},
-				"supervisor": {
-					"enabled": true
-				},
-				"current_provider": "test1",
-				"providers": {
-					"test1": {"env": {"ANTHROPIC_AUTH_TOKEN": "test"}}
-				}
-			}`,
-			expectSupervisor: true,
-			expectEnabled:    true,
 			expectMaxIter:    20,  // defaults
 			expectTimeout:    600, // defaults
 		},
@@ -578,42 +556,8 @@ func TestE2E_SupervisorConfigLoading(t *testing.T) {
 				}
 			}`,
 			expectSupervisor: true,
-			expectEnabled:    false, // default
 			expectMaxIter:    5,
 			expectTimeout:    600, // default
-		},
-		{
-			name: "env_var_enables_supervisor",
-			configJSON: `{
-				"settings": {"permissions": {"defaultMode": "acceptEdits"}},
-				"current_provider": "test1",
-				"providers": {
-					"test1": {"env": {"ANTHROPIC_AUTH_TOKEN": "test"}}
-				}
-			}`,
-			expectSupervisor: true,
-			expectEnabled:    true, // enabled by env var
-			expectMaxIter:    20,   // defaults
-			expectTimeout:    600,  // defaults
-			envVar:           "1",
-		},
-		{
-			name: "env_var_disables_supervisor",
-			configJSON: `{
-				"settings": {"permissions": {"defaultMode": "acceptEdits"}},
-				"supervisor": {
-					"enabled": true
-				},
-				"current_provider": "test1",
-				"providers": {
-					"test1": {"env": {"ANTHROPIC_AUTH_TOKEN": "test"}}
-				}
-			}`,
-			expectSupervisor: true,
-			expectEnabled:    false, // disabled by env var
-			expectMaxIter:    20,    // defaults
-			expectTimeout:    600,   // defaults
-			envVar:           "0",
 		},
 	}
 
@@ -638,9 +582,6 @@ func TestE2E_SupervisorConfigLoading(t *testing.T) {
 			// Run ccc validate to trigger config loading
 			cmd := exec.CommandContext(ctx, cccBinaryPath, "validate")
 			cmd.Env = append(os.Environ(), fmt.Sprintf("CCC_CONFIG_DIR=%s", testConfigDir))
-			if tt.envVar != "" {
-				cmd.Env = append(cmd.Env, fmt.Sprintf("CCC_SUPERVISOR=%s", tt.envVar))
-			}
 			output, err := cmd.CombinedOutput()
 			if err != nil {
 				t.Logf("Command completed with error (API test may fail): %v", err)
