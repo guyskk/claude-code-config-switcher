@@ -1,5 +1,6 @@
 ---
 description: Execute the implementation planning workflow using the plan template to generate design artifacts.
+language_note: **IMPORTANT**: Output MUST be in Chinese following the Chinese template (.specify/templates/plan-template.md). All technical descriptions, architecture decisions, and implementation details must be written in Chinese.
 handoffs: 
   - label: Create Tasks
     agent: speckit.tasks

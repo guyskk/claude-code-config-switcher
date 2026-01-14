@@ -1,5 +1,6 @@
 ---
 description: Create or update the feature specification from a natural language feature description.
+language_note: **IMPORTANT**: Output MUST be in Chinese following the Chinese template (.specify/templates/spec-template.md). All user stories, requirements, and acceptance scenarios must be written in Chinese.
 handoffs: 
   - label: Build Technical Plan
     agent: speckit.plan

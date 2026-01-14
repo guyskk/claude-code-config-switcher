@@ -1,5 +1,6 @@
 ---
 description: Execute the implementation plan by processing and executing all tasks defined in tasks.md
+language_note: **IMPORTANT**: All communication with the user MUST be in Chinese. Code comments should use Chinese where appropriate. Variable names and function names remain in English.
 ---
 
 ## User Input

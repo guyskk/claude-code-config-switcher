@@ -1,5 +1,6 @@
 ---
 description: Generate an actionable, dependency-ordered tasks.md for the feature based on available design artifacts.
+language_note: **IMPORTANT**: Output MUST be in Chinese following the Chinese template (.specify/templates/tasks-template.md). All task descriptions, instructions, and explanations must be written in Chinese.
 handoffs: 
   - label: Analyze For Consistency
     agent: speckit.analyze
