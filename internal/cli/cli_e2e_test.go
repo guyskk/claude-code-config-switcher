@@ -509,10 +509,11 @@ func TestE2E_SupervisorConfigLoading(t *testing.T) {
 	tests := []struct {
 		name             string
 		configJSON       string
-		expectSupervisor bool // whether supervisor section should exist in output
-		expectEnabled    bool // expected enabled value
-		expectMaxIter    int  // expected max_iterations value
-		expectTimeout    int  // expected timeout_seconds value
+		expectSupervisor bool   // whether supervisor section should exist in output
+		expectEnabled    bool   // expected enabled value
+		expectMaxIter    int    // expected max_iterations value
+		expectTimeout    int    // expected timeout_seconds value
+		envVar           string // optional CCC_SUPERVISOR env var
 	}{
 		{
 			name: "supervisor_enabled_at_top_level",
@@ -581,6 +582,39 @@ func TestE2E_SupervisorConfigLoading(t *testing.T) {
 			expectMaxIter:    5,
 			expectTimeout:    600, // default
 		},
+		{
+			name: "env_var_enables_supervisor",
+			configJSON: `{
+				"settings": {"permissions": {"defaultMode": "acceptEdits"}},
+				"current_provider": "test1",
+				"providers": {
+					"test1": {"env": {"ANTHROPIC_AUTH_TOKEN": "test"}}
+				}
+			}`,
+			expectSupervisor: true,
+			expectEnabled:    true, // enabled by env var
+			expectMaxIter:    20,   // defaults
+			expectTimeout:    600,  // defaults
+			envVar:           "1",
+		},
+		{
+			name: "env_var_disables_supervisor",
+			configJSON: `{
+				"settings": {"permissions": {"defaultMode": "acceptEdits"}},
+				"supervisor": {
+					"enabled": true
+				},
+				"current_provider": "test1",
+				"providers": {
+					"test1": {"env": {"ANTHROPIC_AUTH_TOKEN": "test"}}
+				}
+			}`,
+			expectSupervisor: true,
+			expectEnabled:    false, // disabled by env var
+			expectMaxIter:    20,    // defaults
+			expectTimeout:    600,   // defaults
+			envVar:           "0",
+		},
 	}
 
 	for _, tt := range tests {
@@ -604,6 +638,9 @@ func TestE2E_SupervisorConfigLoading(t *testing.T) {
 			// Run ccc validate to trigger config loading
 			cmd := exec.CommandContext(ctx, cccBinaryPath, "validate")
 			cmd.Env = append(os.Environ(), fmt.Sprintf("CCC_CONFIG_DIR=%s", testConfigDir))
+			if tt.envVar != "" {
+				cmd.Env = append(cmd.Env, fmt.Sprintf("CCC_SUPERVISOR=%s", tt.envVar))
+			}
 			output, err := cmd.CombinedOutput()
 			if err != nil {
 				t.Logf("Command completed with error (API test may fail): %v", err)
