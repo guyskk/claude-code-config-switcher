@@ -29,6 +29,7 @@ type Command struct {
 	Help               bool
 	Provider           string
 	ClaudeArgs         []string
+	Debug              bool // --debug flag for verbose logging
 	Validate           bool
 	ValidateOpts       *ValidateCommand
 	SupervisorHook     bool
@@ -55,6 +56,13 @@ type SupervisorModeCommand struct {
 // Parse parses command-line arguments.
 func Parse(args []string) *Command {
 	cmd := &Command{}
+	// Check for --debug flag across all arguments
+	for _, arg := range args {
+		if arg == "--debug" {
+			cmd.Debug = true
+			break
+		}
+	}
 	// 根据第一个参数判断是否是ccc的参数，其余参数透传给claude
 	firstArg := ""
 	if len(args) > 0 {
@@ -253,14 +261,8 @@ func Run(cmd *Command) error {
 		return runValidate(cfg, cmd.ValidateOpts)
 	}
 
-	// Determine which provider to use
-	providerName := determineProvider(cmd, cfg)
-	if providerName == "" {
-		return fmt.Errorf("no providers configured")
-	}
-
-	// Run claude with the provider
-	return runClaude(cfg, providerName, cmd.ClaudeArgs)
+	// Run claude with the provider (provider determination is inside runClaude)
+	return runClaude(cfg, cmd)
 }
 
 // runValidate executes the validate command.
@@ -287,35 +289,6 @@ func (a *configAdapter) Providers() map[string]map[string]interface{} {
 
 func (a *configAdapter) CurrentProvider() string {
 	return a.cfg.CurrentProvider
-}
-
-// determineProvider determines which provider to use based on the command and config.
-func determineProvider(cmd *Command, cfg *config.Config) string {
-	if cmd.Provider != "" {
-		// User specified a provider, check if it's valid
-		if _, exists := cfg.Providers[cmd.Provider]; exists {
-			return cmd.Provider
-		}
-		// Not a valid provider, try using current provider
-		if cfg.CurrentProvider != "" {
-			fmt.Printf("Unknown provider: %s\n", cmd.Provider)
-			fmt.Printf("Using current provider: %s\n", cfg.CurrentProvider)
-			return cfg.CurrentProvider
-		}
-		return ""
-	}
-
-	// No provider specified, use current or first available
-	if cfg.CurrentProvider != "" {
-		return cfg.CurrentProvider
-	}
-
-	// Use the first available provider
-	for name := range cfg.Providers {
-		return name
-	}
-
-	return ""
 }
 
 // RunSupervisorMode executes the supervisor-mode subcommand.

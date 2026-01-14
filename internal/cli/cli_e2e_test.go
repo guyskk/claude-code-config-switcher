@@ -312,7 +312,8 @@ func TestE2E_SupervisorMode(t *testing.T) {
 		}
 		defer console.Close()
 
-		cmd := exec.CommandContext(ctx, cccBinaryPath, "test1")
+		// Add --debug flag to get the "Supervisor log: tail -f" output
+		cmd := exec.CommandContext(ctx, cccBinaryPath, "--debug", "test1")
 		cmd.Env = append(os.Environ(),
 			fmt.Sprintf("CCC_CONFIG_DIR=%s", testConfigDir))
 		cmd.Stdin = console.Tty()
@@ -323,10 +324,10 @@ func TestE2E_SupervisorMode(t *testing.T) {
 			t.Fatalf("failed to start command: %v", err)
 		}
 
-		// Should see supervisor session message while process is running
-		// The actual output format is "Supervisor session: tail -f <logpath>"
-		if _, err := console.ExpectString("Supervisor session: tail -f"); err != nil {
-			t.Errorf("expected supervisor session message: %v", err)
+		// Should see supervisor log message while process is running (only with --debug)
+		// The actual output format is "Supervisor log: tail -f <logpath>"
+		if _, err := console.ExpectString("Supervisor log: tail -f"); err != nil {
+			t.Errorf("expected supervisor log message: %v", err)
 		}
 		if _, err := console.ExpectString("Launching with provider: test1"); err != nil {
 			t.Errorf("expected launching message: %v", err)
@@ -387,7 +388,8 @@ func TestE2E_SupervisorLogFormat(t *testing.T) {
 	}
 
 	// Run ccc with an invalid flag to cause quick exit (but still trigger supervisor init)
-	cmd := exec.Command(cccBinaryPath, "test1", "--invalid-flag-to-cause-exit")
+	// Use --debug flag to get the "Supervisor log: tail -f" output
+	cmd := exec.Command(cccBinaryPath, "test1", "--debug", "--invalid-flag-to-cause-exit")
 	cmd.Env = append(os.Environ(),
 		fmt.Sprintf("CCC_CONFIG_DIR=%s", testConfigDir))
 
@@ -398,10 +400,10 @@ func TestE2E_SupervisorLogFormat(t *testing.T) {
 
 	outputStr := string(output)
 
-	// Verify stdout contains supervisor session message
+	// Verify stdout contains supervisor log message (only shown with --debug)
 	// (but NOT the log messages, which only go to file)
-	if !strings.Contains(outputStr, "Supervisor session: tail -f") {
-		t.Errorf("expected output to contain 'Supervisor session: tail -f', got: %s", outputStr)
+	if !strings.Contains(outputStr, "Supervisor log: tail -f") {
+		t.Errorf("expected output to contain 'Supervisor log: tail -f', got: %s", outputStr)
 	}
 
 	// Verify log file exists and has correct format
@@ -428,9 +430,9 @@ func TestE2E_SupervisorLogFormat(t *testing.T) {
 	}
 
 	// Verify the log format is: timestamp LEVEL message
-	// Example: 2026-01-10T16:20:55.995859698+08:00 INFO Supervisor session started
-	if !strings.Contains(logContentStr, "INFO Supervisor session started") {
-		t.Errorf("expected log to contain 'INFO Supervisor session started', got: %s", logContentStr)
+	// Example: 2026-01-10T16:20:55.995859698+08:00 INFO Supervisor started
+	if !strings.Contains(logContentStr, "INFO Supervisor started") {
+		t.Errorf("expected log to contain 'INFO Supervisor started', got: %s", logContentStr)
 	}
 	// Verify the hint about /supervisor command
 	if !strings.Contains(logContentStr, "INFO Use /supervisor command to enable supervisor mode") {
