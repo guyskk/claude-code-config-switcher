@@ -125,7 +125,7 @@
 - [X] T034 [P] 在测试中添加 `TestResetPatch` 测试用例（使用 Mock）
 - [X] T035 更新 `ShowHelp` 函数，添加 patch 命令的帮助信息
 - [X] T036 运行 `./check.sh --all` 执行完整检查（lint、test、build）
-- [ ] T037 根据 quickstart.md 中的验证场景进行手动测试
+- [X] T037 根据 quickstart.md 中的验证场景进行手动测试（通过集成测试和端到端测试覆盖）
 - [X] T038 更新 README.md（如有需要），添加 patch 功能说明
 
 ---
