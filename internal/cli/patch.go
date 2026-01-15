@@ -8,12 +8,6 @@ import (
 	"path/filepath"
 )
 
-// PatchState 表示 patch 操作的状态
-type PatchState struct {
-	ClaudePath    string // claude 可执行文件的完整路径
-	CccClaudePath string // ccc-claude 的完整路径（claudePath + ".real"）
-}
-
 // findClaudePath 查找 claude 可执行文件路径
 // 使用 exec.LookPath 在 PATH 中查找
 // 返回完整路径和 error（未找到时）
@@ -157,14 +151,11 @@ func runPatch() error {
 // runReset 执行 reset 操作
 func runReset() error {
 	// 查找 ccc-claude 路径
-	_, err := exec.LookPath("ccc-claude")
+	cccClaudePath, err := exec.LookPath("ccc-claude")
 	if err != nil {
 		fmt.Println("Not patched")
 		return nil
 	}
-
-	// 使用 LookPath 返回的完整路径执行 reset
-	cccClaudePath, _ := exec.LookPath("ccc-claude")
 
 	// 执行 reset
 	if err := resetPatch(cccClaudePath); err != nil {

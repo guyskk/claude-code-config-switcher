@@ -146,6 +146,71 @@ sudo ccc patch --reset
 #         Claude command restored to original
 ```
 
+### Requirements
+
+- **sudo权限**: Patch requires write access to the claude binary location (typically `/usr/local/bin`)
+- **claude in PATH**: The `claude` command must be discoverable via `PATH`
+- **macOS/Linux only**: Windows is not supported
+
+### Troubleshooting
+
+#### Permission denied
+
+```bash
+# Error: "failed to rename claude: permission denied"
+# Solution: Make sure you're using sudo
+sudo ccc patch
+```
+
+#### Claude not found
+
+```bash
+# Error: "claude not found in PATH"
+# Solution: Verify claude is installed and in your PATH
+which claude
+# Expected: /usr/local/bin/claude (or similar)
+```
+
+#### Patch already applied
+
+```bash
+# Running: sudo ccc patch
+# Output: "Already patched"
+# This is normal - patch is idempotent
+```
+
+#### Manual cleanup (if patch fails)
+
+If patch fails partway through, manually restore:
+
+```bash
+# Find the real claude binary
+ls -la /usr/local/bin/claude*
+
+# If ccc-claude exists, restore it
+sudo mv /usr/local/bin/ccc-claude.real /usr/local/bin/claude
+
+# Or remove the wrapper if it's corrupted
+sudo rm /usr/local/bin/claude
+```
+
+#### Verify patch status
+
+```bash
+# Check if ccc-claude.real exists
+ls -la /usr/local/bin/claude*
+
+# Check what claude is
+cat $(which claude)
+# If patched, shows wrapper script with CCC_CLAUDE
+```
+
+### Limitations
+
+- **Symbolic links**: If `claude` is a symlink, patch will rename the symlink itself
+- **Concurrent execution**: Running patch in multiple terminals simultaneously is not supported
+- **Version updates**: Updating claude may require re-patching after installation
+
 ## Supervisor Mode (Recommended)
 
 Supervisor Mode is the most valuable feature of `ccc`. It automatically reviews the Agent's work after each stop and provides feedback if incomplete.

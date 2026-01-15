@@ -146,6 +146,71 @@ sudo ccc patch --reset
 #       Claude command restored to original
 ```
 
+### 使用要求
+
+- **sudo 权限**：patch 需要对 claude 二进制文件所在位置的写权限（通常是 `/usr/local/bin`）
+- **claude 在 PATH 中**：`claude` 命令必须可以通过 `PATH` 发现
+- **仅支持 macOS/Linux**：不支持 Windows
+
+### 故障排查
+
+#### 权限被拒绝
+
+```bash
+# 错误："failed to rename claude: permission denied"
+# 解决方案：确保使用 sudo
+sudo ccc patch
+```
+
+#### 找不到 claude
+
+```bash
+# 错误："claude not found in PATH"
+# 解决方案：验证 claude 已安装并在 PATH 中
+which claude
+# 预期输出：/usr/local/bin/claude（或类似路径）
+```
+
+#### 已经应用过 patch
+
+```bash
+# 执行：sudo ccc patch
+# 输出："Already patched"
+# 这是正常现象 - patch 是幂等的
+```
+
+#### 手动清理（如果 patch 失败）
+
+如果 patch 中途失败，手动恢复：
+
+```bash
+# 查找真实的 claude 二进制文件
+ls -la /usr/local/bin/claude*
+
+# 如果 ccc-claude.real 存在，恢复它
+sudo mv /usr/local/bin/ccc-claude.real /usr/local/bin/claude
+
+# 或删除损坏的包装脚本
+sudo rm /usr/local/bin/claude
+```
+
+#### 验证 patch 状态
+
+```bash
+# 检查 ccc-claude.real 是否存在
+ls -la /usr/local/bin/claude*
+
+# 检查 claude 是什么
+cat $(which claude)
+# 如果已 patch，会显示包含 CCC_CLAUDE 的包装脚本
+```
+
+### 限制
+
+- **符号链接**：如果 `claude` 是符号链接，patch 会重命名符号链接本身
+- **并发执行**：不支持同时在多个终端运行 patch
+- **版本更新**：更新 claude 后可能需要重新执行 patch
+
 ## Supervisor 模式（推荐）
 
 Supervisor 模式是 `ccc` 最有价值的特性。它会在 Agent 每次停止后自动审查工作质量，如果未完成则提供反馈让 Agent 继续执行。
