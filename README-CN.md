@@ -91,6 +91,61 @@ ccc validate
 ccc validate --all
 ```
 
+## Patch 命令：用 ccc 替代 `claude` 命令
+
+通过替换系统中的 `claude` 命令，让 `ccc` 成为你的默认 Claude Code。
+
+### 用法
+
+```bash
+# 用 ccc 替换 claude 命令（需要 sudo 权限）
+sudo ccc patch
+
+# 替换后，`claude` 命令现在会调用 ccc
+claude --help    # 显示 ccc 的帮助信息
+
+# 恢复原始 claude 命令
+sudo ccc patch --reset
+```
+
+### 技术细节
+
+1. **Patch**：将你的 `claude` 二进制文件重命名为 `ccc-claude`，并在原位置创建一个包装脚本
+2. **包装脚本**：设置 `CCC_CLAUDE` 环境变量并执行 `ccc`
+3. **ccc 内部机制**：ccc 使用 `CCC_CLAUDE` 来调用真实的 claude 二进制文件，避免递归调用
+
+### 优势
+
+- 任何调用 `claude` 的脚本或工具现在都会使用配置了提供商的 ccc
+- ccc 的 Supervisor 模式和提供商切换成为默认行为
+- 无需修改 PATH 或 shell 配置
+- 使用 `--reset` 标志轻松恢复
+
+### 使用示例
+
+```bash
+# Patch 前：claude 调用 Anthropic 的 claude
+claude --help
+
+# 应用 patch
+sudo ccc patch
+# 输出：Patched successfully
+#       Claude command now uses ccc
+
+# Patch 后：claude 现在调用 ccc
+claude --help    # 显示 ccc 帮助信息和你的提供商
+claude glm       # 使用 ccc 并切换到 GLM 提供商
+
+# 直接调用 ccc 仍然有效
+ccc --help       # 显示 ccc 帮助信息
+ccc kimi         # 使用 ccc 并切换到 Kimi 提供商
+
+# 需要时恢复
+sudo ccc patch --reset
+# 输出：Reset successfully
+#       Claude command restored to original
+```
+
 ## Supervisor 模式（推荐）
 
 Supervisor 模式是 `ccc` 最有价值的特性。它会在 Agent 每次停止后自动审查工作质量，如果未完成则提供反馈让 Agent 继续执行。

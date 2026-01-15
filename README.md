@@ -91,6 +91,61 @@ ccc validate
 ccc validate --all
 ```
 
+## Patch Command: Replace `claude` with `ccc`
+
+Make `ccc` your default Claude Code by replacing the system `claude` command.
+
+### Usage
+
+```bash
+# Replace claude command with ccc (requires sudo)
+sudo ccc patch
+
+# After patching, `claude` command now uses ccc
+claude --help    # Shows ccc help
+
+# Restore original claude command
+sudo ccc patch --reset
+```
+
+### Technical Details
+
+1. **Patch**: Renames your `claude` binary to `ccc-claude` and creates a wrapper script at the original `claude` location
+2. **Wrapper Script**: Sets `CCC_CLAUDE` environment variable and executes `ccc`
+3. **ccc Internals**: ccc uses `CCC_CLAUDE` to call the real claude binary, avoiding recursive calls
+
+### Benefits
+
+- Any script or tool that calls `claude` will now use `ccc` with your configured providers
+- ccc's Supervisor mode and provider switching become the default
+- No PATH or shell configuration changes needed
+- Easy to restore with `--reset` flag
+
+### Example Session
+
+```bash
+# Before patch: claude calls Anthropic's claude
+claude --help
+
+# Apply patch
+sudo ccc patch
+# Output: Patched successfully
+#         Claude command now uses ccc
+
+# After patch: claude now calls ccc
+claude --help    # Shows ccc help with your providers
+claude glm       # Uses ccc with GLM provider
+
+# Direct ccc calls still work
+ccc --help       # Shows ccc help
+ccc kimi         # Uses ccc with Kimi provider
+
+# Restore when needed
+sudo ccc patch --reset
+# Output: Reset successfully
+#         Claude command restored to original
+```
+
 ## Supervisor Mode (Recommended)
 
 Supervisor Mode is the most valuable feature of `ccc`. It automatically reviews the Agent's work after each stop and provides feedback if incomplete.
