@@ -95,8 +95,22 @@ func Parse(args []string) *Command {
 }
 
 // parseValidateArgs parses arguments for the validate command.
+// Supports flags in any position (e.g., "validate glm --json" or "validate --json glm").
 func parseValidateArgs(args []string) *ValidateCommand {
 	opts := &ValidateCommand{}
+
+	// Separate flags from positional args
+	var flags []string
+	var positional []string
+	for _, arg := range args {
+		if strings.HasPrefix(arg, "--") {
+			flags = append(flags, arg)
+		} else if strings.HasPrefix(arg, "-") && arg != "-" {
+			flags = append(flags, arg)
+		} else {
+			positional = append(positional, arg)
+		}
+	}
 
 	fs := flag.NewFlagSet("validate", flag.ContinueOnError)
 	fs.Usage = func() {} // Suppress default usage output
@@ -104,7 +118,7 @@ func parseValidateArgs(args []string) *ValidateCommand {
 	jsonOutput := fs.Bool("json", false, "output in JSON format")
 	jsonPretty := fs.Bool("pretty", false, "pretty-print JSON output")
 
-	if err := fs.Parse(args); err != nil {
+	if err := fs.Parse(flags); err != nil {
 		// On parse error, return options with defaults
 		return opts
 	}
@@ -113,10 +127,9 @@ func parseValidateArgs(args []string) *ValidateCommand {
 	opts.JSONOutput = *jsonOutput
 	opts.JSONPretty = *jsonPretty
 
-	// Get remaining arguments as positional args
-	remaining := fs.Args()
-	if len(remaining) > 0 {
-		opts.Provider = remaining[0]
+	// Get positional args (provider name)
+	if len(positional) > 0 {
+		opts.Provider = positional[0]
 	}
 
 	return opts

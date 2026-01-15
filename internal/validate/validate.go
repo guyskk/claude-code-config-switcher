@@ -526,11 +526,14 @@ func Run(cfg Config, opts *RunOptions) error {
 		}
 
 		// Return error if any provider is invalid or API test failed
-		if summary.Invalid > 0 {
-			return fmt.Errorf("%d provider(s) invalid", summary.Invalid)
-		}
-		if summary.Warning > 0 {
-			return fmt.Errorf("%d provider(s) with API failures", summary.Warning)
+		// When JSON output is enabled, the JSON contains all error info, so don't return text errors
+		if !opts.JSONOutput {
+			if summary.Invalid > 0 {
+				return fmt.Errorf("%d provider(s) invalid", summary.Invalid)
+			}
+			if summary.Warning > 0 {
+				return fmt.Errorf("%d provider(s) with API failures", summary.Warning)
+			}
 		}
 		return nil
 	}
@@ -564,6 +567,8 @@ func Run(cfg Config, opts *RunOptions) error {
 		if err := printResultJSON(result, opts.JSONPretty); err != nil {
 			return err
 		}
+		// When JSON output is enabled, don't return text errors - the JSON contains error info
+		return nil
 	} else {
 		PrintResult(result)
 	}
