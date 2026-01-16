@@ -101,9 +101,21 @@ func runClaude(cfg *config.Config, cmd *Command) error {
 	fmt.Printf("Launching with provider: %s\n", providerName)
 
 	// Find claude executable path
-	claudePath, err := exec.LookPath("claude")
-	if err != nil {
-		return fmt.Errorf("claude not found in PATH: %w", err)
+	// 优先使用 CCC_CLAUDE 环境变量（由包装脚本设置）
+	var claudePath string
+	if realPath := os.Getenv("CCC_CLAUDE"); realPath != "" {
+		// 环境变量存在，验证路径是否有效
+		// 使用 exec.LookPath 验证文件存在且可执行
+		claudePath, err = exec.LookPath(realPath)
+		if err != nil {
+			return fmt.Errorf("CCC_CLAUDE environment variable points to invalid path: %s: %w", realPath, err)
+		}
+	} else {
+		// 环境变量不存在，使用 LookPath 查找
+		claudePath, err = exec.LookPath("claude")
+		if err != nil {
+			return fmt.Errorf("claude not found in PATH: %w", err)
+		}
 	}
 
 	// Build arguments (argv[0] must be the program name)
