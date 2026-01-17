@@ -56,8 +56,21 @@ func SwitchWithHook(cfg *config.Config, providerName string) (*SwitchResult, err
 	// Build hook command (no --state-dir parameter, state dir is handled internally)
 	hookCommand := fmt.Sprintf("%s supervisor-hook", cccPath)
 
+	// Read existing settings.json to preserve user configurations (e.g., enabledPlugins)
+	settingsPath := config.GetSettingsPath()
+	existingSettings := make(map[string]interface{})
+	if existingData, err := os.ReadFile(settingsPath); err == nil {
+		// Ignore error if file doesn't exist, just use empty map
+		json.Unmarshal(existingData, &existingSettings)
+	}
+
 	// Build settings with hook, but without env
+	// Start with existing settings to preserve user configurations
 	settingsWithHook := make(map[string]interface{})
+	for k, v := range existingSettings {
+		settingsWithHook[k] = v
+	}
+	// Then apply merged settings from ccc.json (excluding env)
 	for k, v := range mergedSettings {
 		if k != "env" {
 			settingsWithHook[k] = v
@@ -85,7 +98,6 @@ func SwitchWithHook(cfg *config.Config, providerName string) (*SwitchResult, err
 	settingsWithHook["hooks"] = hooks
 
 	// Save settings with hook (without env) to settings.json
-	settingsPath := config.GetSettingsPath()
 	settingsData, err := json.MarshalIndent(settingsWithHook, "", "  ")
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal settings: %w", err)
