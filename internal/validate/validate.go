@@ -73,7 +73,9 @@ func fetchAvailableModels(baseURL, authToken string) ([]string, error) {
 		return nil, err
 	}
 
+	// Use minimal standard headers compatible with third-party providers
 	req.Header.Set("Authorization", "Bearer "+authToken)
+	req.Header.Set("accept", "application/json")
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -232,7 +234,6 @@ func ValidateProvider(cfg Config, providerName string) *ValidationResult {
 
 // testAPIConnection tests if the API endpoint is reachable.
 // If model is configured, tests with /v1/messages. Otherwise, tests with /v1/models.
-// No fallback logic - direct return of success or error.
 func testAPIConnection(baseURL, authToken, model string) string {
 	client := &http.Client{
 		Timeout: 8 * time.Second,
@@ -249,6 +250,8 @@ func testAPIConnection(baseURL, authToken, model string) string {
 	}
 
 	// Model is configured, test with /v1/messages endpoint
+	// Note: Do not include beta=true query parameter, but beta headers are
+	// required by some providers (like 88) to identify Claude Code requests
 	messagesURL := strings.TrimSuffix(baseURL, "/") + "/v1/messages"
 	body := fmt.Sprintf(`{"model":"%s","max_tokens":10,"messages":[{"role":"user","content":"1+1=?"}]}`, model)
 
@@ -257,9 +260,14 @@ func testAPIConnection(baseURL, authToken, model string) string {
 		return fmt.Sprintf("failed: %v", err)
 	}
 
+	// Use minimal standard headers compatible with third-party providers
+	// Include beta headers for providers that require them (like 88)
 	req.Header.Set("Authorization", "Bearer "+authToken)
 	req.Header.Set("anthropic-version", "2023-06-01")
 	req.Header.Set("content-type", "application/json")
+	req.Header.Set("accept", "application/json")
+	req.Header.Set("anthropic-beta", "claude-code-20250219,interleaved-thinking-2025-05-14")
+	req.Header.Set("anthropic-dangerous-direct-browser-access", "true")
 
 	resp, err := client.Do(req)
 	if err != nil {
