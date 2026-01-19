@@ -332,6 +332,8 @@ func (a *configAdapter) CurrentProvider() string {
 
 // RunSupervisorMode executes the supervisor-mode subcommand.
 // It queries or modifies the enabled state in the supervisor state file.
+// When setting (on/off), produces no output on stdout or stderr.
+// When querying, outputs "on" or "off" to stdout without any additional content.
 func RunSupervisorMode(opts *SupervisorModeCommand) error {
 	// Get supervisor ID from environment variable
 	supervisorID := os.Getenv("CCC_SUPERVISOR_ID")
@@ -363,13 +365,7 @@ func RunSupervisorMode(opts *SupervisorModeCommand) error {
 		return fmt.Errorf("failed to save state: %w", err)
 	}
 
-	// Log success to stderr only
-	log := supervisor.NewSupervisorLogger(supervisorID)
-	if *opts.Enabled {
-		log.Info("supervisor mode enabled", "supervisor_id", supervisorID)
-	} else {
-		log.Info("supervisor mode disabled", "supervisor_id", supervisorID)
-	}
+	// No output when setting mode - silent operation
 
 	return nil
 }
