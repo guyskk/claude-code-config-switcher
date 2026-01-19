@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"syscall"
 	"time"
 
@@ -129,6 +130,17 @@ func runClaude(cfg *config.Config, cmd *Command) error {
 	// Start with current process environment
 	env := os.Environ()
 
+	// Remove existing environment variables to ensure provider config takes precedence
+	prefixes := []string{"CLAUDE_", "ANTHROPIC_"}
+	env = filterEnvVars(env, func(key string) bool {
+		for _, prefix := range prefixes {
+			if strings.HasPrefix(key, prefix) {
+				return false
+			}
+		}
+		return true
+	})
+
 	// Add merged provider env variables
 	if switchResult.EnvVars != nil {
 		envPairs := provider.EnvPairsToStrings(switchResult.EnvVars)
@@ -137,4 +149,17 @@ func runClaude(cfg *config.Config, cmd *Command) error {
 
 	// Execute the process (replaces current process, does not return on success)
 	return executeProcess(claudePath, execArgs, env)
+}
+
+// filterEnvVars filters environment variables based on a predicate function
+func filterEnvVars(env []string, shouldKeep func(string) bool) []string {
+	var filtered []string
+	for _, envVar := range env {
+		if parts := strings.SplitN(envVar, "=", 2); len(parts) == 2 {
+			if shouldKeep(parts[0]) {
+				filtered = append(filtered, envVar)
+			}
+		}
+	}
+	return filtered
 }
