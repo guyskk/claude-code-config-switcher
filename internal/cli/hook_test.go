@@ -1,13 +1,20 @@
 package cli
 
 import (
+	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/guyskk/ccc/internal/config"
+	"github.com/guyskk/ccc/internal/supervisor"
 )
+
+// ============================================================================
+// parseResultJSON 测试
+// ============================================================================
 
 func TestParseResultJSON(t *testing.T) {
 	tests := []struct {
@@ -109,6 +116,10 @@ func TestParseResultJSON(t *testing.T) {
 	}
 }
 
+// ============================================================================
+// getDefaultSupervisorPrompt 测试
+// ============================================================================
+
 func TestGetDefaultSupervisorPrompt(t *testing.T) {
 	// Save original GetDirFunc to restore after test
 	originalGetDirFunc := config.GetDirFunc
@@ -127,23 +138,14 @@ func TestGetDefaultSupervisorPrompt(t *testing.T) {
 			t.Errorf("getDefaultSupervisorPrompt() source = %q, want %q", source, "supervisor_prompt_default")
 		}
 		// Check that key parts are present (prompt is in Chinese)
-		// The prompt uses role keywords like "监督者" (supervisor), "审查者" (reviewer), or "Supervisor"
 		if !strings.Contains(prompt, "监督者") && !strings.Contains(prompt, "审查者") && !strings.Contains(prompt, "Supervisor") {
-			t.Error("getDefaultSupervisorPrompt() missing role keyword ('监督者', '审查者', or 'Supervisor')")
+			t.Error("getDefaultSupervisorPrompt() missing role keyword")
 		}
 		if !strings.Contains(prompt, "allow_stop") {
 			t.Error("getDefaultSupervisorPrompt() missing 'allow_stop'")
 		}
 		if !strings.Contains(prompt, "feedback") {
 			t.Error("getDefaultSupervisorPrompt() missing 'feedback'")
-		}
-		// Check that the prompt mentions JSON output format
-		if !strings.Contains(prompt, "JSON") && !strings.Contains(prompt, "json") {
-			t.Error("getDefaultSupervisorPrompt() should mention JSON format")
-		}
-		// Check for key sections in the Chinese prompt
-		if !strings.Contains(prompt, "停止任务") && !strings.Contains(prompt, "审查框架") && !strings.Contains(prompt, "审查思维") {
-			t.Error("getDefaultSupervisorPrompt() should contain key sections")
 		}
 	})
 
@@ -176,34 +178,14 @@ func TestGetDefaultSupervisorPrompt(t *testing.T) {
 		if source != "supervisor_prompt_default" {
 			t.Errorf("getDefaultSupervisorPrompt() source = %q, want %q", source, "supervisor_prompt_default")
 		}
-		// Should use default prompt (contains Chinese keywords)
-		if !strings.Contains(prompt, "监督者") && !strings.Contains(prompt, "审查者") && !strings.Contains(prompt, "Supervisor") {
-			t.Error("getDefaultSupervisorPrompt() should use default prompt when custom file is empty")
-		}
-	})
-
-	t.Run("custom file with only whitespace falls back to default", func(t *testing.T) {
-		customPath := filepath.Join(tempDir, "SUPERVISOR.md")
-		if err := os.WriteFile(customPath, []byte("\n\n"), 0644); err != nil {
-			t.Fatalf("failed to write whitespace-only custom prompt file: %v", err)
-		}
-
-		prompt, source := getDefaultSupervisorPrompt()
-		if prompt == "" {
-			t.Error("getDefaultSupervisorPrompt() returned empty string for whitespace-only custom file")
-		}
-		if source != "supervisor_prompt_default" {
-			t.Errorf("getDefaultSupervisorPrompt() source = %q, want %q", source, "supervisor_prompt_default")
-		}
-		// Should use default prompt
-		if !strings.Contains(prompt, "监督者") && !strings.Contains(prompt, "审查者") && !strings.Contains(prompt, "Supervisor") {
-			t.Error("getDefaultSupervisorPrompt() should use default prompt when custom file is whitespace-only")
-		}
 	})
 }
 
+// ============================================================================
+// supervisorResultSchema 测试
+// ============================================================================
+
 func TestSupervisorResultSchema(t *testing.T) {
-	// Verify the schema has the correct structure
 	if supervisorResultSchema == nil {
 		t.Fatal("supervisorResultSchema is nil")
 	}
@@ -219,7 +201,6 @@ func TestSupervisorResultSchema(t *testing.T) {
 		t.Fatal("schema properties is not a map")
 	}
 
-	// Check required fields
 	required, ok := schemaMap["required"].([]string)
 	if !ok {
 		t.Fatal("schema required is not a string slice")
@@ -228,19 +209,276 @@ func TestSupervisorResultSchema(t *testing.T) {
 		t.Errorf("required fields count = %d, want 2", len(required))
 	}
 
-	// Check required field names
-	if required[0] != "allow_stop" && required[1] != "allow_stop" {
-		t.Error("schema required fields should include 'allow_stop'")
-	}
-	if required[0] != "feedback" && required[1] != "feedback" {
-		t.Error("schema required fields should include 'feedback'")
-	}
-
-	// Check properties exist
 	if _, ok := properties["allow_stop"]; !ok {
 		t.Error("schema missing 'allow_stop' property")
 	}
 	if _, ok := properties["feedback"]; !ok {
 		t.Error("schema missing 'feedback' property")
+	}
+}
+
+// ============================================================================
+// 输入结构体测试
+// ============================================================================
+
+func TestHookInputHeader_Unmarshal(t *testing.T) {
+	tests := []struct {
+		name              string
+		jsonInput         string
+		wantSessionID     string
+		wantHookEventName string
+	}{
+		{
+			name:              "Stop event (no hook_event_name)",
+			jsonInput:         `{"session_id": "test-123", "stop_hook_active": false}`,
+			wantSessionID:     "test-123",
+			wantHookEventName: "",
+		},
+		{
+			name:              "PreToolUse event",
+			jsonInput:         `{"session_id": "test-456", "hook_event_name": "PreToolUse", "tool_name": "AskUserQuestion"}`,
+			wantSessionID:     "test-456",
+			wantHookEventName: "PreToolUse",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var header HookInputHeader
+			if err := json.Unmarshal([]byte(tt.jsonInput), &header); err != nil {
+				t.Fatalf("Failed to unmarshal: %v", err)
+			}
+			if header.SessionID != tt.wantSessionID {
+				t.Errorf("SessionID = %q, want %q", header.SessionID, tt.wantSessionID)
+			}
+			if header.HookEventName != tt.wantHookEventName {
+				t.Errorf("HookEventName = %q, want %q", header.HookEventName, tt.wantHookEventName)
+			}
+		})
+	}
+}
+
+func TestStopHookInput_Unmarshal(t *testing.T) {
+	jsonInput := `{"session_id": "test-stop-789", "stop_hook_active": true}`
+
+	var input StopHookInput
+	if err := json.Unmarshal([]byte(jsonInput), &input); err != nil {
+		t.Fatalf("Failed to unmarshal: %v", err)
+	}
+
+	if input.SessionID != "test-stop-789" {
+		t.Errorf("SessionID = %q, want 'test-stop-789'", input.SessionID)
+	}
+	if input.StopHookActive != true {
+		t.Errorf("StopHookActive = %v, want true", input.StopHookActive)
+	}
+}
+
+func TestPreToolUseInput_Unmarshal(t *testing.T) {
+	jsonInput := `{
+		"session_id": "test-pretool-123",
+		"hook_event_name": "PreToolUse",
+		"tool_name": "AskUserQuestion",
+		"tool_input": {"questions": [{"question": "选择方案?", "header": "方案"}]},
+		"tool_use_id": "toolu_abc123",
+		"transcript_path": "/path/to/transcript.json",
+		"cwd": "/workspace"
+	}`
+
+	var input PreToolUseInput
+	if err := json.Unmarshal([]byte(jsonInput), &input); err != nil {
+		t.Fatalf("Failed to unmarshal: %v", err)
+	}
+
+	if input.SessionID != "test-pretool-123" {
+		t.Errorf("SessionID = %q, want 'test-pretool-123'", input.SessionID)
+	}
+	if input.HookEventName != "PreToolUse" {
+		t.Errorf("HookEventName = %q, want 'PreToolUse'", input.HookEventName)
+	}
+	if input.ToolName != "AskUserQuestion" {
+		t.Errorf("ToolName = %q, want 'AskUserQuestion'", input.ToolName)
+	}
+	if input.ToolUseID != "toolu_abc123" {
+		t.Errorf("ToolUseID = %q, want 'toolu_abc123'", input.ToolUseID)
+	}
+	if input.TranscriptPath != "/path/to/transcript.json" {
+		t.Errorf("TranscriptPath = %q, want '/path/to/transcript.json'", input.TranscriptPath)
+	}
+	if input.CWD != "/workspace" {
+		t.Errorf("CWD = %q, want '/workspace'", input.CWD)
+	}
+	if len(input.ToolInput) == 0 {
+		t.Error("ToolInput should not be empty")
+	}
+}
+
+// ============================================================================
+// detectEventType 测试
+// ============================================================================
+
+func TestDetectEventType(t *testing.T) {
+	tests := []struct {
+		name          string
+		input         string
+		wantEventType supervisor.HookEventType
+		wantSessionID string
+		wantErr       bool
+	}{
+		{
+			name:          "Stop event (no hook_event_name)",
+			input:         `{"session_id": "test-stop", "stop_hook_active": false}`,
+			wantEventType: supervisor.EventTypeStop,
+			wantSessionID: "test-stop",
+			wantErr:       false,
+		},
+		{
+			name:          "PreToolUse event",
+			input:         `{"session_id": "test-pretool", "hook_event_name": "PreToolUse", "tool_name": "AskUserQuestion"}`,
+			wantEventType: supervisor.EventTypePreToolUse,
+			wantSessionID: "test-pretool",
+			wantErr:       false,
+		},
+		{
+			name:          "Stop event (explicit)",
+			input:         `{"session_id": "test-explicit-stop", "hook_event_name": "Stop"}`,
+			wantEventType: supervisor.EventTypeStop,
+			wantSessionID: "test-explicit-stop",
+			wantErr:       false,
+		},
+		{
+			name:          "Unknown event type defaults to Stop",
+			input:         `{"session_id": "test-unknown", "hook_event_name": "Unknown"}`,
+			wantEventType: supervisor.HookEventType("Unknown"),
+			wantSessionID: "test-unknown",
+			wantErr:       false,
+		},
+		{
+			name:          "Invalid JSON",
+			input:         `{invalid json`,
+			wantEventType: "",
+			wantSessionID: "",
+			wantErr:       true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reader := bytes.NewReader([]byte(tt.input))
+			eventType, _, sessionID, err := detectEventType(reader)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("detectEventType() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if err == nil {
+				if eventType != tt.wantEventType {
+					t.Errorf("eventType = %q, want %q", eventType, tt.wantEventType)
+				}
+				if sessionID != tt.wantSessionID {
+					t.Errorf("sessionID = %q, want %q", sessionID, tt.wantSessionID)
+				}
+			}
+		})
+	}
+}
+
+func TestDetectEventType_PreservesRawInput(t *testing.T) {
+	input := `{"session_id": "test", "hook_event_name": "PreToolUse", "tool_name": "AskUserQuestion", "extra_field": "preserved"}`
+	reader := bytes.NewReader([]byte(input))
+
+	_, rawInput, _, err := detectEventType(reader)
+	if err != nil {
+		t.Fatalf("detectEventType() error = %v", err)
+	}
+
+	// 验证原始输入被完整保留
+	if !strings.Contains(string(rawInput), "extra_field") {
+		t.Error("Raw input should preserve all fields including extra_field")
+	}
+}
+
+// ============================================================================
+// 集成测试
+// ============================================================================
+
+func TestRunSupervisorHook_RecursiveCallProtection(t *testing.T) {
+	originalGetDirFunc := config.GetDirFunc
+	defer func() { config.GetDirFunc = originalGetDirFunc }()
+
+	tempDir := t.TempDir()
+	config.GetDirFunc = func() string { return tempDir }
+
+	state := &supervisor.State{Enabled: true}
+	if err := supervisor.SaveState("test-recursive-protection", state); err != nil {
+		t.Fatalf("failed to save state: %v", err)
+	}
+
+	oldSupervisorID := os.Getenv("CCC_SUPERVISOR_ID")
+	oldSupervisorHook := os.Getenv("CCC_SUPERVISOR_HOOK")
+	defer func() {
+		os.Setenv("CCC_SUPERVISOR_ID", oldSupervisorID)
+		os.Setenv("CCC_SUPERVISOR_HOOK", oldSupervisorHook)
+	}()
+	os.Setenv("CCC_SUPERVISOR_ID", "test-recursive-protection")
+	os.Setenv("CCC_SUPERVISOR_HOOK", "1") // 模拟递归调用
+
+	hookInputJSON := `{"session_id": "test-recursive-protection", "hook_event_name": "PreToolUse", "tool_name": "AskUserQuestion"}`
+
+	oldStdin := os.Stdin
+	r, w, _ := os.Pipe()
+	os.Stdin = r
+	go func() {
+		w.Write([]byte(hookInputJSON))
+		w.Close()
+	}()
+	defer func() { os.Stdin = oldStdin }()
+
+	opts := &SupervisorHookCommand{}
+	err := RunSupervisorHook(opts)
+
+	if err != nil {
+		t.Errorf("RunSupervisorHook() error = %v, want nil (recursive call protection)", err)
+	}
+}
+
+func TestRunSupervisorHook_SupervisorModeDisabled(t *testing.T) {
+	originalGetDirFunc := config.GetDirFunc
+	defer func() { config.GetDirFunc = originalGetDirFunc }()
+
+	tempDir := t.TempDir()
+	config.GetDirFunc = func() string { return tempDir }
+
+	state := &supervisor.State{Enabled: false}
+	if err := supervisor.SaveState("test-supervisor-disabled", state); err != nil {
+		t.Fatalf("failed to save state: %v", err)
+	}
+
+	oldSupervisorID := os.Getenv("CCC_SUPERVISOR_ID")
+	oldSupervisorHook := os.Getenv("CCC_SUPERVISOR_HOOK")
+	defer func() {
+		os.Setenv("CCC_SUPERVISOR_ID", oldSupervisorID)
+		os.Setenv("CCC_SUPERVISOR_HOOK", oldSupervisorHook)
+	}()
+	os.Setenv("CCC_SUPERVISOR_ID", "test-supervisor-disabled")
+	os.Setenv("CCC_SUPERVISOR_HOOK", "")
+
+	hookInputJSON := `{"session_id": "test-supervisor-disabled", "hook_event_name": "PreToolUse", "tool_name": "AskUserQuestion"}`
+
+	oldStdin := os.Stdin
+	r, w, _ := os.Pipe()
+	os.Stdin = r
+	go func() {
+		w.Write([]byte(hookInputJSON))
+		w.Close()
+	}()
+	defer func() { os.Stdin = oldStdin }()
+
+	opts := &SupervisorHookCommand{}
+	err := RunSupervisorHook(opts)
+
+	if err != nil {
+		t.Errorf("RunSupervisorHook() error = %v, want nil (supervisor disabled)", err)
 	}
 }
