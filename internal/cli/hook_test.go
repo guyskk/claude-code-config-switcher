@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -242,5 +243,345 @@ func TestSupervisorResultSchema(t *testing.T) {
 	}
 	if _, ok := properties["feedback"]; !ok {
 		t.Error("schema missing 'feedback' property")
+	}
+}
+
+func TestSupervisorResultToHookOutput_PreToolUse_Allow(t *testing.T) {
+	result := &SupervisorResult{
+		AllowStop: true,
+		Feedback:  "问题合理，可以向用户提问",
+	}
+
+	output := SupervisorResultToHookOutput(result, "PreToolUse")
+
+	if output == nil {
+		t.Fatal("SupervisorResultToHookOutput() returned nil")
+	}
+
+	// Should have HookSpecificOutput for PreToolUse
+	if output.HookSpecificOutput == nil {
+		t.Fatal("HookSpecificOutput is nil for PreToolUse event")
+	}
+
+	// Check decision is "allow"
+	if output.HookSpecificOutput.PermissionDecision != "allow" {
+		t.Errorf("PermissionDecision = %q, want 'allow'", output.HookSpecificOutput.PermissionDecision)
+	}
+
+	// Check hook event name
+	if output.HookSpecificOutput.HookEventName != "PreToolUse" {
+		t.Errorf("HookEventName = %q, want 'PreToolUse'", output.HookSpecificOutput.HookEventName)
+	}
+
+	// Check reason
+	if output.HookSpecificOutput.PermissionDecisionReason != result.Feedback {
+		t.Errorf("PermissionDecisionReason = %q, want %q", output.HookSpecificOutput.PermissionDecisionReason, result.Feedback)
+	}
+
+	// Stop event fields should be empty
+	if output.Decision != nil {
+		t.Error("Decision should be nil for PreToolUse event")
+	}
+}
+
+func TestSupervisorResultToHookOutput_PreToolUse_Deny(t *testing.T) {
+	result := &SupervisorResult{
+		AllowStop: false,
+		Feedback:  "应该在代码中添加更多注释后再提问",
+	}
+
+	output := SupervisorResultToHookOutput(result, "PreToolUse")
+
+	if output == nil {
+		t.Fatal("SupervisorResultToHookOutput() returned nil")
+	}
+
+	// Should have HookSpecificOutput for PreToolUse
+	if output.HookSpecificOutput == nil {
+		t.Fatal("HookSpecificOutput is nil for PreToolUse event")
+	}
+
+	// Check decision is "deny"
+	if output.HookSpecificOutput.PermissionDecision != "deny" {
+		t.Errorf("PermissionDecision = %q, want 'deny'", output.HookSpecificOutput.PermissionDecision)
+	}
+
+	// Check hook event name
+	if output.HookSpecificOutput.HookEventName != "PreToolUse" {
+		t.Errorf("HookEventName = %q, want 'PreToolUse'", output.HookSpecificOutput.HookEventName)
+	}
+
+	// Check reason
+	if output.HookSpecificOutput.PermissionDecisionReason != result.Feedback {
+		t.Errorf("PermissionDecisionReason = %q, want %q", output.HookSpecificOutput.PermissionDecisionReason, result.Feedback)
+	}
+
+	// Stop event fields should be empty
+	if output.Decision != nil {
+		t.Error("Decision should be nil for PreToolUse event")
+	}
+}
+
+func TestSupervisorResultToHookOutput_Stop_Allow(t *testing.T) {
+	result := &SupervisorResult{
+		AllowStop: true,
+		Feedback:  "工作已完成",
+	}
+
+	output := SupervisorResultToHookOutput(result, "Stop")
+
+	if output == nil {
+		t.Fatal("SupervisorResultToHookOutput() returned nil")
+	}
+
+	// Should NOT have HookSpecificOutput for Stop
+	if output.HookSpecificOutput != nil {
+		t.Error("HookSpecificOutput should be nil for Stop event")
+	}
+
+	// Decision should be nil (allow stop)
+	if output.Decision != nil {
+		t.Errorf("Decision = %q, want nil (allow stop)", *output.Decision)
+	}
+
+	// Check reason
+	if output.Reason != result.Feedback {
+		t.Errorf("Reason = %q, want %q", output.Reason, result.Feedback)
+	}
+}
+
+func TestSupervisorResultToHookOutput_Stop_Block(t *testing.T) {
+	result := &SupervisorResult{
+		AllowStop: false,
+		Feedback:  "需要继续完善测试用例",
+	}
+
+	output := SupervisorResultToHookOutput(result, "Stop")
+
+	if output == nil {
+		t.Fatal("SupervisorResultToHookOutput() returned nil")
+	}
+
+	// Should NOT have HookSpecificOutput for Stop
+	if output.HookSpecificOutput != nil {
+		t.Error("HookSpecificOutput should be nil for Stop event")
+	}
+
+	// Decision should be "block"
+	if output.Decision == nil {
+		t.Fatal("Decision is nil for block case")
+	}
+	if *output.Decision != "block" {
+		t.Errorf("Decision = %q, want 'block'", *output.Decision)
+	}
+
+	// Check reason
+	if output.Reason != result.Feedback {
+		t.Errorf("Reason = %q, want %q", output.Reason, result.Feedback)
+	}
+}
+
+func TestSupervisorResultToHookOutput_PreToolUse_EmptyFeedback(t *testing.T) {
+	result := &SupervisorResult{
+		AllowStop: true,
+		Feedback:  "",
+	}
+
+	output := SupervisorResultToHookOutput(result, "PreToolUse")
+
+	if output == nil {
+		t.Fatal("SupervisorResultToHookOutput() returned nil")
+	}
+
+	// Empty feedback should still be passed through
+	if output.HookSpecificOutput.PermissionDecisionReason != "" {
+		t.Errorf("PermissionDecisionReason = %q, want empty string", output.HookSpecificOutput.PermissionDecisionReason)
+	}
+}
+
+func TestSupervisorResultToHookOutput_Stop_EmptyFeedback(t *testing.T) {
+	result := &SupervisorResult{
+		AllowStop: true,
+		Feedback:  "",
+	}
+
+	output := SupervisorResultToHookOutput(result, "Stop")
+
+	if output == nil {
+		t.Fatal("SupervisorResultToHookOutput() returned nil")
+	}
+
+	// Empty feedback should still be passed through
+	if output.Reason != "" {
+		t.Errorf("Reason = %q, want empty string", output.Reason)
+	}
+}
+
+func TestHookInput_PreToolUse_Unmarshal(t *testing.T) {
+	// Test that HookInput can unmarshal PreToolUse event JSON
+	jsonInput := `{
+		"session_id": "test-session-123",
+		"hook_event_name": "PreToolUse",
+		"tool_name": "AskUserQuestion",
+		"tool_input": {
+			"questions": [
+				{
+					"question": "请选择实现方案",
+					"header": "方案选择"
+				}
+			]
+		},
+		"tool_use_id": "toolu_01ABC123"
+	}`
+
+	var input HookInput
+	if err := json.Unmarshal([]byte(jsonInput), &input); err != nil {
+		t.Fatalf("Failed to unmarshal PreToolUse input: %v", err)
+	}
+
+	// Verify common fields
+	if input.SessionID != "test-session-123" {
+		t.Errorf("SessionID = %q, want 'test-session-123'", input.SessionID)
+	}
+	if input.HookEventName != "PreToolUse" {
+		t.Errorf("HookEventName = %q, want 'PreToolUse'", input.HookEventName)
+	}
+
+	// Verify PreToolUse fields
+	if input.ToolName != "AskUserQuestion" {
+		t.Errorf("ToolName = %q, want 'AskUserQuestion'", input.ToolName)
+	}
+	if input.ToolUseID != "toolu_01ABC123" {
+		t.Errorf("ToolUseID = %q, want 'toolu_01ABC123'", input.ToolUseID)
+	}
+
+	// Verify tool_input is preserved
+	if len(input.ToolInput) == 0 {
+		t.Error("ToolInput is empty")
+	}
+}
+
+func TestHookInput_Stop_Unmarshal(t *testing.T) {
+	// Test backward compatibility: old Stop event format still works
+	jsonInput := `{
+		"session_id": "test-session-456",
+		"stop_hook_active": false
+	}`
+
+	var input HookInput
+	if err := json.Unmarshal([]byte(jsonInput), &input); err != nil {
+		t.Fatalf("Failed to unmarshal Stop input: %v", err)
+	}
+
+	// Verify common fields
+	if input.SessionID != "test-session-456" {
+		t.Errorf("SessionID = %q, want 'test-session-456'", input.SessionID)
+	}
+
+	// StopHookActive should be parsed
+	if input.StopHookActive != false {
+		t.Errorf("StopHookActive = %v, want false", input.StopHookActive)
+	}
+
+	// PreToolUse fields should be empty
+	if input.ToolName != "" {
+		t.Errorf("ToolName = %q, want empty string", input.ToolName)
+	}
+	if input.HookEventName != "" {
+		t.Errorf("HookEventName = %q, want empty string", input.HookEventName)
+	}
+}
+
+func TestHookOutput_PreToolUse_Marshal(t *testing.T) {
+	output := &HookOutput{
+		HookSpecificOutput: &HookSpecificOutput{
+			HookEventName:            "PreToolUse",
+			PermissionDecision:       "allow",
+			PermissionDecisionReason: "问题合理",
+		},
+	}
+
+	jsonBytes, err := json.Marshal(output)
+	if err != nil {
+		t.Fatalf("Failed to marshal PreToolUse output: %v", err)
+	}
+
+	jsonStr := string(jsonBytes)
+
+	// Verify the output contains PreToolUse fields
+	if !strings.Contains(jsonStr, `"hookSpecificOutput"`) {
+		t.Error("Output should contain 'hookSpecificOutput'")
+	}
+	if !strings.Contains(jsonStr, `"permissionDecision"`) {
+		t.Error("Output should contain 'permissionDecision'")
+	}
+	if !strings.Contains(jsonStr, `"allow"`) {
+		t.Error("Output should contain 'allow' decision")
+	}
+	if !strings.Contains(jsonStr, `"PreToolUse"`) {
+		t.Error("Output should contain 'PreToolUse' event name")
+	}
+	// Should NOT contain Stop event fields
+	if strings.Contains(jsonStr, `"decision"`) {
+		t.Error("Output should NOT contain 'decision' for PreToolUse event")
+	}
+}
+
+func TestHookOutput_Stop_Block_Marshal(t *testing.T) {
+	block := "block"
+	output := &HookOutput{
+		Decision: &block,
+		Reason:   "需要继续工作",
+	}
+
+	jsonBytes, err := json.Marshal(output)
+	if err != nil {
+		t.Fatalf("Failed to marshal Stop block output: %v", err)
+	}
+
+	jsonStr := string(jsonBytes)
+
+	// Verify the output contains Stop fields
+	if !strings.Contains(jsonStr, `"decision"`) {
+		t.Error("Output should contain 'decision'")
+	}
+	if !strings.Contains(jsonStr, `"block"`) {
+		t.Error("Output should contain 'block' decision")
+	}
+	if !strings.Contains(jsonStr, `"reason"`) {
+		t.Error("Output should contain 'reason'")
+	}
+	// Should NOT contain PreToolUse fields
+	if strings.Contains(jsonStr, `"hookSpecificOutput"`) {
+		t.Error("Output should NOT contain 'hookSpecificOutput' for Stop event")
+	}
+}
+
+func TestHookOutput_Stop_Allow_Marshal(t *testing.T) {
+	output := &HookOutput{
+		Reason: "工作已完成",
+	}
+
+	jsonBytes, err := json.Marshal(output)
+	if err != nil {
+		t.Fatalf("Failed to marshal Stop allow output: %v", err)
+	}
+
+	jsonStr := string(jsonBytes)
+
+	// Verify the output contains reason
+	if !strings.Contains(jsonStr, `"reason"`) {
+		t.Error("Output should contain 'reason'")
+	}
+	if !strings.Contains(jsonStr, `"工作已完成"`) {
+		t.Error("Output should contain the reason text")
+	}
+	// Should NOT contain decision (allow = omit decision)
+	if strings.Contains(jsonStr, `"decision"`) {
+		t.Error("Output should NOT contain 'decision' when allowing stop")
+	}
+	// Should NOT contain PreToolUse fields
+	if strings.Contains(jsonStr, `"hookSpecificOutput"`) {
+		t.Error("Output should NOT contain 'hookSpecificOutput' for Stop event")
 	}
 }
