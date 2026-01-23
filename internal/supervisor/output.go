@@ -43,22 +43,34 @@ type PreToolUseHookOutput struct {
 // Before PreToolUse support was added, this was the only output type.
 type HookOutput = StopHookOutput
 
-// OutputDecision outputs the supervisor's decision.
+// OutputDecision outputs the supervisor's decision based on event type.
 //
 // Parameters:
 //   - log: The logger to use
-//   - allowStop: true to allow the agent to stop, false to block and require more work
+//   - eventType: The type of hook event (Stop or PreToolUse)
+//   - allow: true to allow the operation, false to block and require more work
 //   - feedback: Feedback message explaining the decision (can be empty)
 //
 // The function:
 // 1. Outputs JSON to stdout for Claude Code to parse
 // 2. Logs the decision
-func OutputDecision(log *slog.Logger, allowStop bool, feedback string) error {
-	// Trim feedback
+func OutputDecision(log *slog.Logger, eventType HookEventType, allow bool, feedback string) error {
 	feedback = strings.TrimSpace(feedback)
 
+	switch eventType {
+	case EventTypePreToolUse:
+		return outputPreToolUseDecisionInternal(log, allow, feedback)
+	case EventTypeStop:
+		fallthrough
+	default:
+		return outputStopDecisionInternal(log, allow, feedback)
+	}
+}
+
+// outputStopDecisionInternal outputs decision for Stop event.
+func outputStopDecisionInternal(log *slog.Logger, allowStop bool, feedback string) error {
 	// Build output
-	output := HookOutput{Reason: feedback}
+	output := StopHookOutput{Reason: feedback}
 	if !allowStop {
 		block := "block"
 		output.Decision = &block
@@ -85,17 +97,8 @@ func OutputDecision(log *slog.Logger, allowStop bool, feedback string) error {
 	return nil
 }
 
-// OutputPreToolUseDecision outputs the decision for a PreToolUse event.
-//
-// Parameters:
-//   - log: The logger to use
-//   - allow: true to allow the tool call, false to deny it
-//   - feedback: Feedback message explaining the decision
-//
-// The function:
-// 1. Outputs JSON to stdout for Claude Code to parse
-// 2. Logs the decision
-func OutputPreToolUseDecision(log *slog.Logger, allow bool, feedback string) error {
+// outputPreToolUseDecisionInternal outputs decision for PreToolUse event.
+func outputPreToolUseDecisionInternal(log *slog.Logger, allow bool, feedback string) error {
 	feedback = strings.TrimSpace(feedback)
 
 	decision := "allow"
@@ -130,4 +133,10 @@ func OutputPreToolUseDecision(log *slog.Logger, allow bool, feedback string) err
 	fmt.Println(string(outputJSON))
 
 	return nil
+}
+
+// OutputPreToolUseDecision outputs the decision for a PreToolUse event.
+// Deprecated: Use OutputDecision with EventTypePreToolUse instead.
+func OutputPreToolUseDecision(log *slog.Logger, allow bool, feedback string) error {
+	return OutputDecision(log, EventTypePreToolUse, allow, feedback)
 }

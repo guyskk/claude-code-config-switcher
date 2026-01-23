@@ -27,24 +27,19 @@ var defaultPromptContent []byte
 // Input Types
 // ============================================================================
 
-// HookInputHeader is used for event type detection, parsing only necessary fields.
-type HookInputHeader struct {
-	SessionID     string `json:"session_id"`
+// HookInput represents unified hook input for all event types.
+// Different fields are used based on HookEventName value.
+type HookInput struct {
+	SessionID string `json:"session_id"`
+
+	// Event type: "Stop" or "PreToolUse"
 	HookEventName string `json:"hook_event_name,omitempty"`
-}
 
-// StopHookInput represents the input from Stop event (end-of-task review).
-type StopHookInput struct {
-	SessionID      string `json:"session_id"`
-	StopHookActive bool   `json:"stop_hook_active"`
-}
+	// Stop event fields (used when HookEventName == "Stop")
+	StopHookActive bool `json:"stop_hook_active,omitempty"`
 
-// PreToolUseInput represents the input from PreToolUse event (pre-tool-call review).
-// The ToolInput field is kept as RawMessage for flexible parsing of different tool inputs.
-type PreToolUseInput struct {
-	SessionID      string          `json:"session_id"`
-	HookEventName  string          `json:"hook_event_name"`
-	ToolName       string          `json:"tool_name"`
+	// PreToolUse event fields (used when HookEventName == "PreToolUse")
+	ToolName       string          `json:"tool_name,omitempty"`
 	ToolInput      json.RawMessage `json:"tool_input,omitempty"`
 	ToolUseID      string          `json:"tool_use_id,omitempty"`
 	TranscriptPath string          `json:"transcript_path,omitempty"`
@@ -96,34 +91,6 @@ func logCurrentEnv(log *slog.Logger) {
 	log.Debug(fmt.Sprintf("supervisor hook environment:\n%s", envStr))
 }
 
-// detectEventType reads raw input from stdin and detects the event type.
-// Returns event type, raw JSON data, and sessionID.
-func detectEventType(stdin io.Reader) (supervisor.HookEventType, []byte, string, error) {
-	rawInput, err := io.ReadAll(stdin)
-	if err != nil {
-		return "", nil, "", fmt.Errorf("failed to read stdin: %w", err)
-	}
-
-	var header HookInputHeader
-	if err := json.Unmarshal(rawInput, &header); err != nil {
-		return "", nil, "", fmt.Errorf("failed to parse hook input header: %w", err)
-	}
-
-	// Validate and normalize event type
-	eventType := supervisor.HookEventType(header.HookEventName)
-	// Default unknown event types to Stop for backward compatibility
-	if eventType != supervisor.EventTypeStop && eventType != supervisor.EventTypePreToolUse {
-		eventType = supervisor.EventTypeStop
-	}
-
-	// Ensure session ID is present
-	if header.SessionID == "" {
-		return "", nil, "", fmt.Errorf("session_id is required in hook input")
-	}
-
-	return eventType, rawInput, header.SessionID, nil
-}
-
 // ============================================================================
 // Main Entry Point
 // ============================================================================
@@ -142,7 +109,7 @@ func RunSupervisorHook(opts *SupervisorHookCommand) error {
 
 	// Prevent recursive calls
 	if os.Getenv("CCC_SUPERVISOR_HOOK") == "1" {
-		return supervisor.OutputDecision(log, true, "called from supervisor hook")
+		return supervisor.OutputDecision(log, supervisor.EventTypeStop, true, "called from supervisor hook")
 	}
 
 	// Load state to check if supervisor mode is enabled
@@ -152,7 +119,7 @@ func RunSupervisorHook(opts *SupervisorHookCommand) error {
 	}
 	if !state.Enabled {
 		log.Debug("supervisor mode disabled, allowing stop", "enabled", state.Enabled)
-		return supervisor.OutputDecision(log, true, "supervisor mode disabled")
+		return supervisor.OutputDecision(log, supervisor.EventTypeStop, true, "supervisor mode disabled")
 	}
 
 	// Load supervisor configuration
@@ -161,10 +128,10 @@ func RunSupervisorHook(opts *SupervisorHookCommand) error {
 		return fmt.Errorf("failed to load supervisor config: %w", err)
 	}
 
-	// Get sessionID and event type
-	var sessionID string
+	// Read hook input
+	var input HookInput
 	var eventType supervisor.HookEventType
-	var rawInput []byte
+	var sessionID string
 
 	if opts != nil && opts.SessionId != "" {
 		// Use sessionID from command line argument, default to Stop event
@@ -172,17 +139,30 @@ func RunSupervisorHook(opts *SupervisorHookCommand) error {
 		eventType = supervisor.EventTypeStop
 		log.Debug("using session_id from command line argument", "session_id", sessionID)
 	} else {
-		// Read from stdin and detect event type
-		eventType, rawInput, sessionID, err = detectEventType(os.Stdin)
+		// Read from stdin
+		rawInput, err := io.ReadAll(os.Stdin)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to read stdin: %w", err)
 		}
-		log.Debug("hook input", "event_type", eventType, "raw_input", string(rawInput))
-	}
 
-	// Validate sessionID
-	if sessionID == "" {
-		return fmt.Errorf("session_id is required (either from --session-id argument or stdin)")
+		if err := json.Unmarshal(rawInput, &input); err != nil {
+			return fmt.Errorf("failed to parse hook input: %w", err)
+		}
+
+		sessionID = input.SessionID
+		eventType = supervisor.HookEventType(input.HookEventName)
+
+		// Default unknown event types to Stop for backward compatibility
+		if eventType != supervisor.EventTypeStop && eventType != supervisor.EventTypePreToolUse {
+			eventType = supervisor.EventTypeStop
+		}
+
+		// Validate sessionID
+		if sessionID == "" {
+			return fmt.Errorf("session_id is required (either from --session-id argument or stdin)")
+		}
+
+		log.Debug("hook input", "event_type", eventType, "session_id", sessionID)
 	}
 
 	// Check iteration count limit
@@ -197,7 +177,7 @@ func RunSupervisorHook(opts *SupervisorHookCommand) error {
 			"max", maxIterations,
 		)
 		// When max iterations reached, allow based on event type
-		return outputDecisionByEventType(log, eventType, true,
+		return supervisor.OutputDecision(log, eventType, true,
 			fmt.Sprintf("max iterations (%d/%d) reached", count, maxIterations))
 	}
 
@@ -218,23 +198,10 @@ func RunSupervisorHook(opts *SupervisorHookCommand) error {
 	// Output result
 	if result == nil {
 		log.Info("no supervisor result found, allowing operation")
-		return outputDecisionByEventType(log, eventType, true, "no supervisor result found")
+		return supervisor.OutputDecision(log, eventType, true, "no supervisor result found")
 	}
 
-	return outputDecisionByEventType(log, eventType, result.AllowStop, result.Feedback)
-}
-
-// outputDecisionByEventType outputs decision in the appropriate format based on event type.
-func outputDecisionByEventType(log *slog.Logger, eventType supervisor.HookEventType, allow bool, feedback string) error {
-	switch eventType {
-	case supervisor.EventTypePreToolUse:
-		return supervisor.OutputPreToolUseDecision(log, allow, feedback)
-	case supervisor.EventTypeStop:
-		fallthrough
-	default:
-		// Unknown event types default to Stop format for backward compatibility
-		return supervisor.OutputDecision(log, allow, feedback)
-	}
+	return supervisor.OutputDecision(log, eventType, result.AllowStop, result.Feedback)
 }
 
 // runSupervisorReview executes the supervisor review process.

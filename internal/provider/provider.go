@@ -10,13 +10,6 @@ import (
 	"github.com/guyskk/ccc/internal/config"
 )
 
-// Constants for hook configuration
-const (
-	// PreToolUseMatcherAskUserQuestion is the tool name matcher for PreToolUse hook.
-	// Only AskUserQuestion tool calls will trigger the supervisor review.
-	PreToolUseMatcherAskUserQuestion = "AskUserQuestion"
-)
-
 // EnvPair represents a single environment variable key-value pair.
 type EnvPair struct {
 	Key   string
@@ -90,7 +83,7 @@ func SwitchWithHook(cfg *config.Config, providerName string) (*SwitchResult, err
 		},
 		"PreToolUse": []map[string]interface{}{
 			{
-				"matcher": PreToolUseMatcherAskUserQuestion, // Match only AskUserQuestion tool
+				"matcher": "AskUserQuestion", // Match only AskUserQuestion tool
 				"hooks": []map[string]interface{}{
 					{
 						"type":    "command",

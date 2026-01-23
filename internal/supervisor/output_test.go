@@ -39,7 +39,7 @@ func TestOutputDecision_AllowStop(t *testing.T) {
 	log := createTestLogger()
 
 	output := captureStdout(func() {
-		err := OutputDecision(log, true, "work completed")
+		err := OutputDecision(log, EventTypeStop, true, "work completed")
 		if err != nil {
 			t.Errorf("OutputDecision() error = %v", err)
 		}
@@ -66,7 +66,7 @@ func TestOutputDecision_Block(t *testing.T) {
 	log := createTestLogger()
 
 	output := captureStdout(func() {
-		err := OutputDecision(log, false, "needs more work")
+		err := OutputDecision(log, EventTypeStop, false, "needs more work")
 		if err != nil {
 			t.Errorf("OutputDecision() error = %v", err)
 		}
@@ -94,7 +94,7 @@ func TestOutputDecision_BlockWithEmptyFeedback(t *testing.T) {
 	log := createTestLogger()
 
 	output := captureStdout(func() {
-		err := OutputDecision(log, false, "")
+		err := OutputDecision(log, EventTypeStop, false, "")
 		if err != nil {
 			t.Errorf("OutputDecision() error = %v", err)
 		}
@@ -118,7 +118,7 @@ func TestOutputDecision_TrimsWhitespace(t *testing.T) {
 	log := createTestLogger()
 
 	output := captureStdout(func() {
-		err := OutputDecision(log, true, "  trimmed feedback  ")
+		err := OutputDecision(log, EventTypeStop, true, "  trimmed feedback  ")
 		if err != nil {
 			t.Errorf("OutputDecision() error = %v", err)
 		}

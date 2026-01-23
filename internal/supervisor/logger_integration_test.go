@@ -246,7 +246,7 @@ func TestOutputDecision_JSONFormat(t *testing.T) {
 			log := slog.New(slog.NewTextHandler(os.Stderr, nil))
 
 			// Call OutputDecision
-			err := OutputDecision(log, tt.allowStop, tt.feedback)
+			err := OutputDecision(log, EventTypeStop, tt.allowStop, tt.feedback)
 			if err != nil {
 				t.Fatalf("OutputDecision failed: %v", err)
 			}
@@ -453,7 +453,7 @@ func TestSupervisorLogger_OutputDecisionLogging(t *testing.T) {
 			logFilePath := filepath.Join(tempDir, "supervisor-"+supervisorID+".log")
 
 			// Call OutputDecision
-			if err := OutputDecision(log, tt.allowStop, tt.feedback); err != nil {
+			if err := OutputDecision(log, EventTypeStop, tt.allowStop, tt.feedback); err != nil {
 				t.Fatalf("OutputDecision failed: %v", err)
 			}
 
