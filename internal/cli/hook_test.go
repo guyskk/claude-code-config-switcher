@@ -68,7 +68,7 @@ func TestParseResultJSON(t *testing.T) {
 			name:         "empty string - fallback with default",
 			jsonText:     "",
 			wantAllow:    false,
-			wantFeedback: "请继续完成任务",
+			wantFeedback: "Please continue completing the task",
 		},
 		{
 			// Fallback: not json - use original text as feedback
@@ -89,7 +89,7 @@ func TestParseResultJSON(t *testing.T) {
 			name:         "whitespace only - fallback with default",
 			jsonText:     "   \n\t  ",
 			wantAllow:    false,
-			wantFeedback: "请继续完成任务",
+			wantFeedback: "Please continue completing the task",
 		},
 		{
 			// Fallback: Chinese text feedback
@@ -349,7 +349,7 @@ func TestDetectEventType(t *testing.T) {
 		{
 			name:          "Unknown event type defaults to Stop",
 			input:         `{"session_id": "test-unknown", "hook_event_name": "Unknown"}`,
-			wantEventType: supervisor.HookEventType("Unknown"),
+			wantEventType: supervisor.EventTypeStop,
 			wantSessionID: "test-unknown",
 			wantErr:       false,
 		},
@@ -480,5 +480,33 @@ func TestRunSupervisorHook_SupervisorModeDisabled(t *testing.T) {
 
 	if err != nil {
 		t.Errorf("RunSupervisorHook() error = %v, want nil (supervisor disabled)", err)
+	}
+}
+
+func TestDetectEventType_EmptySessionID(t *testing.T) {
+	input := `{"hook_event_name": "PreToolUse", "tool_name": "AskUserQuestion"}`
+	reader := bytes.NewReader([]byte(input))
+
+	_, _, _, err := detectEventType(reader)
+
+	if err == nil {
+		t.Fatal("detectEventType() should return error when session_id is missing")
+	}
+	if !strings.Contains(err.Error(), "session_id is required") {
+		t.Errorf("error message should mention session_id, got: %v", err)
+	}
+}
+
+func TestDetectEventType_InvalidJSON(t *testing.T) {
+	input := `{invalid json`
+	reader := bytes.NewReader([]byte(input))
+
+	_, _, _, err := detectEventType(reader)
+
+	if err == nil {
+		t.Fatal("detectEventType() should return error for invalid JSON")
+	}
+	if !strings.Contains(err.Error(), "failed to parse") {
+		t.Errorf("error message should mention parsing error, got: %v", err)
 	}
 }

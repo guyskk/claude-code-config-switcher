@@ -8,17 +8,17 @@ import (
 	"strings"
 )
 
-// HookEventType 定义 hook 事件类型
+// HookEventType defines the type of hook event.
 type HookEventType string
 
 const (
-	// EventTypeStop 表示 Stop 事件（任务结束审查）
+	// EventTypeStop represents a Stop event (end-of-task review)
 	EventTypeStop HookEventType = "Stop"
-	// EventTypePreToolUse 表示 PreToolUse 事件（工具调用前审查）
+	// EventTypePreToolUse represents a PreToolUse event (pre-tool-call review)
 	EventTypePreToolUse HookEventType = "PreToolUse"
 )
 
-// StopHookOutput 表示 Stop 事件的输出格式
+// StopHookOutput represents the output format for Stop events.
 // Reason is always set (provides context for the decision).
 // Decision is "block" when not allowing stop, omitted when allowing stop.
 type StopHookOutput struct {
@@ -26,22 +26,21 @@ type StopHookOutput struct {
 	Reason   string  `json:"reason"`             // Always set
 }
 
-// PreToolUseSpecificOutput 表示 PreToolUse 事件的特定输出字段
+// PreToolUseSpecificOutput contains PreToolUse event-specific output fields.
 type PreToolUseSpecificOutput struct {
 	HookEventName            string `json:"hookEventName"`            // "PreToolUse"
 	PermissionDecision       string `json:"permissionDecision"`       // "allow", "deny"
-	PermissionDecisionReason string `json:"permissionDecisionReason"` // 决策原因
+	PermissionDecisionReason string `json:"permissionDecisionReason"` // Reason for the decision
 }
 
-// PreToolUseHookOutput 表示 PreToolUse 事件的输出格式
+// PreToolUseHookOutput represents the output format for PreToolUse events.
 type PreToolUseHookOutput struct {
 	HookSpecificOutput *PreToolUseSpecificOutput `json:"hookSpecificOutput"`
 }
 
-// HookOutput represents the output to stdout (for Stop events).
-// Reason is always set (provides context for the decision).
-// Decision is "block" when not allowing stop, omitted when allowing stop.
-// Deprecated: 使用 StopHookOutput 代替，此类型保留用于向后兼容
+// HookOutput represents the output to stdout.
+// Deprecated: Use StopHookOutput instead. This type alias is kept for backward compatibility.
+// Before PreToolUse support was added, this was the only output type.
 type HookOutput = StopHookOutput
 
 // OutputDecision outputs the supervisor's decision.
@@ -86,16 +85,16 @@ func OutputDecision(log *slog.Logger, allowStop bool, feedback string) error {
 	return nil
 }
 
-// OutputPreToolUseDecision 输出 PreToolUse 事件的决策
+// OutputPreToolUseDecision outputs the decision for a PreToolUse event.
 //
-// 参数:
-//   - log: 日志记录器
-//   - allow: true 允许工具调用，false 拒绝工具调用
-//   - feedback: 决策反馈信息
+// Parameters:
+//   - log: The logger to use
+//   - allow: true to allow the tool call, false to deny it
+//   - feedback: Feedback message explaining the decision
 //
-// 功能:
-// 1. 输出 JSON 到 stdout 供 Claude Code 解析
-// 2. 记录决策日志
+// The function:
+// 1. Outputs JSON to stdout for Claude Code to parse
+// 2. Logs the decision
 func OutputPreToolUseDecision(log *slog.Logger, allow bool, feedback string) error {
 	feedback = strings.TrimSpace(feedback)
 
@@ -103,7 +102,7 @@ func OutputPreToolUseDecision(log *slog.Logger, allow bool, feedback string) err
 	if !allow {
 		decision = "deny"
 		if feedback == "" {
-			feedback = "请继续完成任务后再提问"
+			feedback = "Please complete the task before asking questions"
 		}
 	}
 
@@ -120,14 +119,14 @@ func OutputPreToolUseDecision(log *slog.Logger, allow bool, feedback string) err
 		return fmt.Errorf("failed to marshal PreToolUse hook output: %w", err)
 	}
 
-	// 记录决策日志
+	// Log the decision
 	if allow {
 		log.Info("supervisor output: allow tool call", "feedback", feedback)
 	} else {
 		log.Info("supervisor output: deny tool call", "feedback", feedback)
 	}
 
-	// 输出 JSON 到 stdout
+	// Output JSON to stdout
 	fmt.Println(string(outputJSON))
 
 	return nil
