@@ -39,7 +39,7 @@ func TestOutputDecision_AllowStop(t *testing.T) {
 	log := createTestLogger()
 
 	output := captureStdout(func() {
-		err := OutputDecision(log, true, "work completed")
+		err := OutputDecision(log, EventTypeStop, true, "work completed")
 		if err != nil {
 			t.Errorf("OutputDecision() error = %v", err)
 		}
@@ -66,7 +66,7 @@ func TestOutputDecision_Block(t *testing.T) {
 	log := createTestLogger()
 
 	output := captureStdout(func() {
-		err := OutputDecision(log, false, "needs more work")
+		err := OutputDecision(log, EventTypeStop, false, "needs more work")
 		if err != nil {
 			t.Errorf("OutputDecision() error = %v", err)
 		}
@@ -94,7 +94,7 @@ func TestOutputDecision_BlockWithEmptyFeedback(t *testing.T) {
 	log := createTestLogger()
 
 	output := captureStdout(func() {
-		err := OutputDecision(log, false, "")
+		err := OutputDecision(log, EventTypeStop, false, "")
 		if err != nil {
 			t.Errorf("OutputDecision() error = %v", err)
 		}
@@ -118,7 +118,7 @@ func TestOutputDecision_TrimsWhitespace(t *testing.T) {
 	log := createTestLogger()
 
 	output := captureStdout(func() {
-		err := OutputDecision(log, true, "  trimmed feedback  ")
+		err := OutputDecision(log, EventTypeStop, true, "  trimmed feedback  ")
 		if err != nil {
 			t.Errorf("OutputDecision() error = %v", err)
 		}
@@ -213,9 +213,12 @@ func TestOutputPreToolUseDecision_DenyWithEmptyFeedback(t *testing.T) {
 		t.Fatalf("Failed to parse output JSON: %v\nOutput: %s", err, output)
 	}
 
-	// 空 feedback 时应该有默认消息
+	// Empty feedback should have default message
 	if result.HookSpecificOutput.PermissionDecisionReason == "" {
 		t.Error("PermissionDecisionReason should not be empty when feedback is empty and denying")
+	}
+	if result.HookSpecificOutput.PermissionDecisionReason != "Please complete the task before asking questions" {
+		t.Errorf("PermissionDecisionReason = %q, want default message", result.HookSpecificOutput.PermissionDecisionReason)
 	}
 }
 

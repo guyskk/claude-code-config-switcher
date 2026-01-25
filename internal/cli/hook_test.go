@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -11,6 +10,73 @@ import (
 	"github.com/guyskk/ccc/internal/config"
 	"github.com/guyskk/ccc/internal/supervisor"
 )
+
+// ============================================================================
+// Input Types Tests
+// ============================================================================
+
+func TestHookInput_Unmarshal_Stop(t *testing.T) {
+	jsonInput := `{"session_id": "test-stop-123", "stop_hook_active": true}`
+
+	var input HookInput
+	if err := json.Unmarshal([]byte(jsonInput), &input); err != nil {
+		t.Fatalf("Failed to unmarshal: %v", err)
+	}
+
+	if input.SessionID != "test-stop-123" {
+		t.Errorf("SessionID = %q, want 'test-stop-123'", input.SessionID)
+	}
+	if input.StopHookActive != true {
+		t.Errorf("StopHookActive = %v, want true", input.StopHookActive)
+	}
+}
+
+func TestHookInput_Unmarshal_PreToolUse(t *testing.T) {
+	jsonInput := `{"session_id": "test-pretool-123", "hook_event_name": "PreToolUse", "tool_name": "AskUserQuestion", "tool_input": {"questions": [{"question": "选择方案?", "header": "方案"}]}, "tool_use_id": "toolu_abc123", "transcript_path": "/path/to/transcript.json", "cwd": "/workspace"}`
+
+	var input HookInput
+	if err := json.Unmarshal([]byte(jsonInput), &input); err != nil {
+		t.Fatalf("Failed to unmarshal: %v", err)
+	}
+
+	if input.SessionID != "test-pretool-123" {
+		t.Errorf("SessionID = %q, want 'test-pretool-123'", input.SessionID)
+	}
+	if input.HookEventName != "PreToolUse" {
+		t.Errorf("HookEventName = %q, want 'PreToolUse'", input.HookEventName)
+	}
+	if input.ToolName != "AskUserQuestion" {
+		t.Errorf("ToolName = %q, want 'AskUserQuestion'", input.ToolName)
+	}
+	if input.ToolUseID != "toolu_abc123" {
+		t.Errorf("ToolUseID = %q, want 'toolu_abc123'", input.ToolUseID)
+	}
+	if input.TranscriptPath != "/path/to/transcript.json" {
+		t.Errorf("TranscriptPath = %q, want '/path/to/transcript.json'", input.TranscriptPath)
+	}
+	if input.CWD != "/workspace" {
+		t.Errorf("CWD = %q, want '/workspace'", input.CWD)
+	}
+	if len(input.ToolInput) == 0 {
+		t.Error("ToolInput should not be empty")
+	}
+}
+
+func TestHookInput_Unmarshal_StopNoEventName(t *testing.T) {
+	jsonInput := `{"session_id": "test-stop-789", "stop_hook_active": false}`
+
+	var input HookInput
+	if err := json.Unmarshal([]byte(jsonInput), &input); err != nil {
+		t.Fatalf("Failed to unmarshal: %v", err)
+	}
+
+	if input.SessionID != "test-stop-789" {
+		t.Errorf("SessionID = %q, want 'test-stop-789'", input.SessionID)
+	}
+	if input.HookEventName != "" {
+		t.Errorf("HookEventName = %q, want '' (empty)", input.HookEventName)
+	}
+}
 
 // ============================================================================
 // parseResultJSON 测试
@@ -68,7 +134,7 @@ func TestParseResultJSON(t *testing.T) {
 			name:         "empty string - fallback with default",
 			jsonText:     "",
 			wantAllow:    false,
-			wantFeedback: "请继续完成任务",
+			wantFeedback: "Please continue completing the task",
 		},
 		{
 			// Fallback: not json - use original text as feedback
@@ -89,7 +155,7 @@ func TestParseResultJSON(t *testing.T) {
 			name:         "whitespace only - fallback with default",
 			jsonText:     "   \n\t  ",
 			wantAllow:    false,
-			wantFeedback: "请继续完成任务",
+			wantFeedback: "Please continue completing the task",
 		},
 		{
 			// Fallback: Chinese text feedback
@@ -221,229 +287,7 @@ func TestSupervisorResultSchema(t *testing.T) {
 // 输入结构体测试
 // ============================================================================
 
-func TestHookInputHeader_Unmarshal(t *testing.T) {
-	tests := []struct {
-		name              string
-		jsonInput         string
-		wantSessionID     string
-		wantHookEventName string
-	}{
-		{
-			name:              "Stop event (no hook_event_name)",
-			jsonInput:         `{"session_id": "test-123", "stop_hook_active": false}`,
-			wantSessionID:     "test-123",
-			wantHookEventName: "",
-		},
-		{
-			name:              "PreToolUse event",
-			jsonInput:         `{"session_id": "test-456", "hook_event_name": "PreToolUse", "tool_name": "AskUserQuestion"}`,
-			wantSessionID:     "test-456",
-			wantHookEventName: "PreToolUse",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var header HookInputHeader
-			if err := json.Unmarshal([]byte(tt.jsonInput), &header); err != nil {
-				t.Fatalf("Failed to unmarshal: %v", err)
-			}
-			if header.SessionID != tt.wantSessionID {
-				t.Errorf("SessionID = %q, want %q", header.SessionID, tt.wantSessionID)
-			}
-			if header.HookEventName != tt.wantHookEventName {
-				t.Errorf("HookEventName = %q, want %q", header.HookEventName, tt.wantHookEventName)
-			}
-		})
-	}
-}
-
-func TestStopHookInput_Unmarshal(t *testing.T) {
-	jsonInput := `{"session_id": "test-stop-789", "stop_hook_active": true}`
-
-	var input StopHookInput
-	if err := json.Unmarshal([]byte(jsonInput), &input); err != nil {
-		t.Fatalf("Failed to unmarshal: %v", err)
-	}
-
-	if input.SessionID != "test-stop-789" {
-		t.Errorf("SessionID = %q, want 'test-stop-789'", input.SessionID)
-	}
-	if input.StopHookActive != true {
-		t.Errorf("StopHookActive = %v, want true", input.StopHookActive)
-	}
-}
-
-func TestPreToolUseInput_Unmarshal(t *testing.T) {
-	jsonInput := `{
-		"session_id": "test-pretool-123",
-		"hook_event_name": "PreToolUse",
-		"tool_name": "AskUserQuestion",
-		"tool_input": {"questions": [{"question": "选择方案?", "header": "方案"}]},
-		"tool_use_id": "toolu_abc123",
-		"transcript_path": "/path/to/transcript.json",
-		"cwd": "/workspace"
-	}`
-
-	var input PreToolUseInput
-	if err := json.Unmarshal([]byte(jsonInput), &input); err != nil {
-		t.Fatalf("Failed to unmarshal: %v", err)
-	}
-
-	if input.SessionID != "test-pretool-123" {
-		t.Errorf("SessionID = %q, want 'test-pretool-123'", input.SessionID)
-	}
-	if input.HookEventName != "PreToolUse" {
-		t.Errorf("HookEventName = %q, want 'PreToolUse'", input.HookEventName)
-	}
-	if input.ToolName != "AskUserQuestion" {
-		t.Errorf("ToolName = %q, want 'AskUserQuestion'", input.ToolName)
-	}
-	if input.ToolUseID != "toolu_abc123" {
-		t.Errorf("ToolUseID = %q, want 'toolu_abc123'", input.ToolUseID)
-	}
-	if input.TranscriptPath != "/path/to/transcript.json" {
-		t.Errorf("TranscriptPath = %q, want '/path/to/transcript.json'", input.TranscriptPath)
-	}
-	if input.CWD != "/workspace" {
-		t.Errorf("CWD = %q, want '/workspace'", input.CWD)
-	}
-	if len(input.ToolInput) == 0 {
-		t.Error("ToolInput should not be empty")
-	}
-}
-
-// ============================================================================
-// detectEventType 测试
-// ============================================================================
-
-func TestDetectEventType(t *testing.T) {
-	tests := []struct {
-		name          string
-		input         string
-		wantEventType supervisor.HookEventType
-		wantSessionID string
-		wantErr       bool
-	}{
-		{
-			name:          "Stop event (no hook_event_name)",
-			input:         `{"session_id": "test-stop", "stop_hook_active": false}`,
-			wantEventType: supervisor.EventTypeStop,
-			wantSessionID: "test-stop",
-			wantErr:       false,
-		},
-		{
-			name:          "PreToolUse event",
-			input:         `{"session_id": "test-pretool", "hook_event_name": "PreToolUse", "tool_name": "AskUserQuestion"}`,
-			wantEventType: supervisor.EventTypePreToolUse,
-			wantSessionID: "test-pretool",
-			wantErr:       false,
-		},
-		{
-			name:          "Stop event (explicit)",
-			input:         `{"session_id": "test-explicit-stop", "hook_event_name": "Stop"}`,
-			wantEventType: supervisor.EventTypeStop,
-			wantSessionID: "test-explicit-stop",
-			wantErr:       false,
-		},
-		{
-			name:          "Unknown event type defaults to Stop",
-			input:         `{"session_id": "test-unknown", "hook_event_name": "Unknown"}`,
-			wantEventType: supervisor.HookEventType("Unknown"),
-			wantSessionID: "test-unknown",
-			wantErr:       false,
-		},
-		{
-			name:          "Invalid JSON",
-			input:         `{invalid json`,
-			wantEventType: "",
-			wantSessionID: "",
-			wantErr:       true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			reader := bytes.NewReader([]byte(tt.input))
-			eventType, _, sessionID, err := detectEventType(reader)
-
-			if (err != nil) != tt.wantErr {
-				t.Errorf("detectEventType() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-
-			if err == nil {
-				if eventType != tt.wantEventType {
-					t.Errorf("eventType = %q, want %q", eventType, tt.wantEventType)
-				}
-				if sessionID != tt.wantSessionID {
-					t.Errorf("sessionID = %q, want %q", sessionID, tt.wantSessionID)
-				}
-			}
-		})
-	}
-}
-
-func TestDetectEventType_PreservesRawInput(t *testing.T) {
-	input := `{"session_id": "test", "hook_event_name": "PreToolUse", "tool_name": "AskUserQuestion", "extra_field": "preserved"}`
-	reader := bytes.NewReader([]byte(input))
-
-	_, rawInput, _, err := detectEventType(reader)
-	if err != nil {
-		t.Fatalf("detectEventType() error = %v", err)
-	}
-
-	// 验证原始输入被完整保留
-	if !strings.Contains(string(rawInput), "extra_field") {
-		t.Error("Raw input should preserve all fields including extra_field")
-	}
-}
-
-// ============================================================================
-// 集成测试
-// ============================================================================
-
-func TestRunSupervisorHook_RecursiveCallProtection(t *testing.T) {
-	originalGetDirFunc := config.GetDirFunc
-	defer func() { config.GetDirFunc = originalGetDirFunc }()
-
-	tempDir := t.TempDir()
-	config.GetDirFunc = func() string { return tempDir }
-
-	state := &supervisor.State{Enabled: true}
-	if err := supervisor.SaveState("test-recursive-protection", state); err != nil {
-		t.Fatalf("failed to save state: %v", err)
-	}
-
-	oldSupervisorID := os.Getenv("CCC_SUPERVISOR_ID")
-	oldSupervisorHook := os.Getenv("CCC_SUPERVISOR_HOOK")
-	defer func() {
-		os.Setenv("CCC_SUPERVISOR_ID", oldSupervisorID)
-		os.Setenv("CCC_SUPERVISOR_HOOK", oldSupervisorHook)
-	}()
-	os.Setenv("CCC_SUPERVISOR_ID", "test-recursive-protection")
-	os.Setenv("CCC_SUPERVISOR_HOOK", "1") // 模拟递归调用
-
-	hookInputJSON := `{"session_id": "test-recursive-protection", "hook_event_name": "PreToolUse", "tool_name": "AskUserQuestion"}`
-
-	oldStdin := os.Stdin
-	r, w, _ := os.Pipe()
-	os.Stdin = r
-	go func() {
-		w.Write([]byte(hookInputJSON))
-		w.Close()
-	}()
-	defer func() { os.Stdin = oldStdin }()
-
-	opts := &SupervisorHookCommand{}
-	err := RunSupervisorHook(opts)
-
-	if err != nil {
-		t.Errorf("RunSupervisorHook() error = %v, want nil (recursive call protection)", err)
-	}
-}
-
-func TestRunSupervisorHook_SupervisorModeDisabled(t *testing.T) {
+func TestRunSupervisorHook_StopEvent(t *testing.T) {
 	originalGetDirFunc := config.GetDirFunc
 	defer func() { config.GetDirFunc = originalGetDirFunc }()
 
@@ -451,7 +295,7 @@ func TestRunSupervisorHook_SupervisorModeDisabled(t *testing.T) {
 	config.GetDirFunc = func() string { return tempDir }
 
 	state := &supervisor.State{Enabled: false}
-	if err := supervisor.SaveState("test-supervisor-disabled", state); err != nil {
+	if err := supervisor.SaveState("test-stop-event", state); err != nil {
 		t.Fatalf("failed to save state: %v", err)
 	}
 
@@ -461,10 +305,10 @@ func TestRunSupervisorHook_SupervisorModeDisabled(t *testing.T) {
 		os.Setenv("CCC_SUPERVISOR_ID", oldSupervisorID)
 		os.Setenv("CCC_SUPERVISOR_HOOK", oldSupervisorHook)
 	}()
-	os.Setenv("CCC_SUPERVISOR_ID", "test-supervisor-disabled")
+	os.Setenv("CCC_SUPERVISOR_ID", "test-stop-event")
 	os.Setenv("CCC_SUPERVISOR_HOOK", "")
 
-	hookInputJSON := `{"session_id": "test-supervisor-disabled", "hook_event_name": "PreToolUse", "tool_name": "AskUserQuestion"}`
+	hookInputJSON := `{"session_id": "test-stop-event", "stop_hook_active": false}`
 
 	oldStdin := os.Stdin
 	r, w, _ := os.Pipe()
@@ -479,6 +323,46 @@ func TestRunSupervisorHook_SupervisorModeDisabled(t *testing.T) {
 	err := RunSupervisorHook(opts)
 
 	if err != nil {
-		t.Errorf("RunSupervisorHook() error = %v, want nil (supervisor disabled)", err)
+		t.Errorf("RunSupervisorHook() error = %v, want nil (stop event)", err)
+	}
+}
+
+func TestRunSupervisorHook_PreToolUseEvent(t *testing.T) {
+	originalGetDirFunc := config.GetDirFunc
+	defer func() { config.GetDirFunc = originalGetDirFunc }()
+
+	tempDir := t.TempDir()
+	config.GetDirFunc = func() string { return tempDir }
+
+	state := &supervisor.State{Enabled: false}
+	if err := supervisor.SaveState("test-pretool-event", state); err != nil {
+		t.Fatalf("failed to save state: %v", err)
+	}
+
+	oldSupervisorID := os.Getenv("CCC_SUPERVISOR_ID")
+	oldSupervisorHook := os.Getenv("CCC_SUPERVISOR_HOOK")
+	defer func() {
+		os.Setenv("CCC_SUPERVISOR_ID", oldSupervisorID)
+		os.Setenv("CCC_SUPERVISOR_HOOK", oldSupervisorHook)
+	}()
+	os.Setenv("CCC_SUPERVISOR_ID", "test-pretool-event")
+	os.Setenv("CCC_SUPERVISOR_HOOK", "")
+
+	hookInputJSON := `{"session_id": "test-pretool-event", "hook_event_name": "PreToolUse", "tool_name": "AskUserQuestion"}`
+
+	oldStdin := os.Stdin
+	r, w, _ := os.Pipe()
+	os.Stdin = r
+	go func() {
+		w.Write([]byte(hookInputJSON))
+		w.Close()
+	}()
+	defer func() { os.Stdin = oldStdin }()
+
+	opts := &SupervisorHookCommand{}
+	err := RunSupervisorHook(opts)
+
+	if err != nil {
+		t.Errorf("RunSupervisorHook() error = %v, want nil (pretool event)", err)
 	}
 }

@@ -24,26 +24,22 @@ import (
 var defaultPromptContent []byte
 
 // ============================================================================
-// 输入结构体定义
+// Input Types
 // ============================================================================
 
-// HookInputHeader 用于事件类型检测，只解析必要字段
-type HookInputHeader struct {
-	SessionID     string `json:"session_id"`
+// HookInput represents unified hook input for all event types.
+// Different fields are used based on HookEventName value.
+type HookInput struct {
+	SessionID string `json:"session_id"`
+
+	// Event type: "Stop" or "PreToolUse"
 	HookEventName string `json:"hook_event_name,omitempty"`
-}
 
-// StopHookInput 表示 Stop 事件的输入（任务结束审查）
-type StopHookInput struct {
-	SessionID      string `json:"session_id"`
-	StopHookActive bool   `json:"stop_hook_active"`
-}
+	// Stop event fields (used when HookEventName == "Stop")
+	StopHookActive bool `json:"stop_hook_active,omitempty"`
 
-// PreToolUseInput 表示 PreToolUse 事件的输入（工具调用前审查）
-type PreToolUseInput struct {
-	SessionID      string          `json:"session_id"`
-	HookEventName  string          `json:"hook_event_name"`
-	ToolName       string          `json:"tool_name"`
+	// PreToolUse event fields (used when HookEventName == "PreToolUse")
+	ToolName       string          `json:"tool_name,omitempty"`
 	ToolInput      json.RawMessage `json:"tool_input,omitempty"`
 	ToolUseID      string          `json:"tool_use_id,omitempty"`
 	TranscriptPath string          `json:"transcript_path,omitempty"`
@@ -51,16 +47,16 @@ type PreToolUseInput struct {
 }
 
 // ============================================================================
-// Supervisor 结果定义
+// Supervisor Result
 // ============================================================================
 
-// SupervisorResult 表示 Supervisor 解析后的输出
+// SupervisorResult represents the parsed output from Supervisor.
 type SupervisorResult struct {
-	AllowStop bool   `json:"allow_stop"` // 是否允许 Agent 停止
-	Feedback  string `json:"feedback"`   // 反馈信息
+	AllowStop bool   `json:"allow_stop"` // Whether to allow the Agent to stop
+	Feedback  string `json:"feedback"`   // Feedback when AllowStop is false
 }
 
-// supervisorResultSchema 是解析 supervisor 输出的 JSON schema
+// supervisorResultSchema is the JSON schema for parsing supervisor output.
 var supervisorResultSchema = map[string]interface{}{
 	"type": "object",
 	"properties": map[string]interface{}{
@@ -77,7 +73,7 @@ var supervisorResultSchema = map[string]interface{}{
 }
 
 // ============================================================================
-// 工具函数
+// Utility Functions
 // ============================================================================
 
 func logCurrentEnv(log *slog.Logger) {
@@ -95,89 +91,81 @@ func logCurrentEnv(log *slog.Logger) {
 	log.Debug(fmt.Sprintf("supervisor hook environment:\n%s", envStr))
 }
 
-// detectEventType 从 stdin 读取原始输入并检测事件类型
-// 返回事件类型、原始 JSON 数据和 sessionID
-func detectEventType(stdin io.Reader) (supervisor.HookEventType, []byte, string, error) {
-	rawInput, err := io.ReadAll(stdin)
-	if err != nil {
-		return "", nil, "", fmt.Errorf("failed to read stdin: %w", err)
-	}
-
-	var header HookInputHeader
-	if err := json.Unmarshal(rawInput, &header); err != nil {
-		return "", nil, "", fmt.Errorf("failed to parse hook input header: %w", err)
-	}
-
-	eventType := supervisor.HookEventType(header.HookEventName)
-	if eventType == "" {
-		eventType = supervisor.EventTypeStop // 默认为 Stop 事件
-	}
-
-	return eventType, rawInput, header.SessionID, nil
-}
-
 // ============================================================================
-// 主入口函数
+// Main Entry Point
 // ============================================================================
 
-// RunSupervisorHook 执行 supervisor-hook 子命令
+// RunSupervisorHook executes the supervisor-hook subcommand.
 func RunSupervisorHook(opts *SupervisorHookCommand) error {
-	// 验证 supervisorID
+	// Validate supervisorID
 	supervisorID := os.Getenv("CCC_SUPERVISOR_ID")
 	if supervisorID == "" {
 		return fmt.Errorf("CCC_SUPERVISOR_ID is required from env var")
 	}
 
-	// 创建日志记录器
+	// Create logger
 	log := supervisor.NewSupervisorLogger(supervisorID)
 	logCurrentEnv(log)
 
-	// 防止递归调用
+	// Prevent recursive calls
 	if os.Getenv("CCC_SUPERVISOR_HOOK") == "1" {
-		return supervisor.OutputDecision(log, true, "called from supervisor hook")
+		return supervisor.OutputDecision(log, supervisor.EventTypeStop, true, "called from supervisor hook")
 	}
 
-	// 加载状态检查 supervisor 模式是否启用
+	// Load state to check if supervisor mode is enabled
 	state, err := supervisor.LoadState(supervisorID)
 	if err != nil {
 		return fmt.Errorf("failed to load supervisor state: %w", err)
 	}
 	if !state.Enabled {
 		log.Debug("supervisor mode disabled, allowing stop", "enabled", state.Enabled)
-		return supervisor.OutputDecision(log, true, "supervisor mode disabled")
+		return supervisor.OutputDecision(log, supervisor.EventTypeStop, true, "supervisor mode disabled")
 	}
 
-	// 加载 supervisor 配置
+	// Load supervisor configuration
 	supervisorCfg, err := config.LoadSupervisorConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load supervisor config: %w", err)
 	}
 
-	// 获取 sessionID 和事件类型
-	var sessionID string
+	// Read hook input
+	var input HookInput
 	var eventType supervisor.HookEventType
-	var rawInput []byte
+	var sessionID string
 
 	if opts != nil && opts.SessionId != "" {
-		// 从命令行参数获取 sessionID，默认为 Stop 事件
+		// Use sessionID from command line argument, default to Stop event
 		sessionID = opts.SessionId
 		eventType = supervisor.EventTypeStop
 		log.Debug("using session_id from command line argument", "session_id", sessionID)
 	} else {
-		// 从 stdin 读取并检测事件类型
-		eventType, rawInput, sessionID, err = detectEventType(os.Stdin)
+		// Read from stdin
+		rawInput, err := io.ReadAll(os.Stdin)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to read stdin: %w", err)
 		}
-		log.Debug("hook input", "event_type", eventType, "raw_input", string(rawInput))
+
+		if err := json.Unmarshal(rawInput, &input); err != nil {
+			return fmt.Errorf("failed to parse hook input: %w", err)
+		}
+
+		sessionID = input.SessionID
+		eventType = supervisor.HookEventType(input.HookEventName)
+
+		// Default unknown event types to Stop for backward compatibility
+		if eventType != supervisor.EventTypeStop && eventType != supervisor.EventTypePreToolUse {
+			eventType = supervisor.EventTypeStop
+		}
+
+		// Validate sessionID
+		if sessionID == "" {
+			return fmt.Errorf("session_id is required (either from --session-id argument or stdin)")
+		}
+
+		log.Debug("hook input", "event_type", eventType, "session_id", sessionID)
 	}
 
-	// 验证 sessionID
-	if sessionID == "" {
-		return fmt.Errorf("session_id is required (either from --session-id argument or stdin)")
-	}
-
-	// 检查迭代次数限制
+	// Check iteration count limit
 	maxIterations := supervisorCfg.MaxIterations
 	shouldContinue, count, err := supervisor.ShouldContinue(sessionID, maxIterations)
 	if err != nil {
@@ -188,12 +176,12 @@ func RunSupervisorHook(opts *SupervisorHookCommand) error {
 			"count", count,
 			"max", maxIterations,
 		)
-		// 达到最大迭代次数时，根据事件类型返回允许
-		return outputDecisionByEventType(log, eventType, true,
+		// When max iterations reached, allow based on event type
+		return supervisor.OutputDecision(log, eventType, true,
 			fmt.Sprintf("max iterations (%d/%d) reached", count, maxIterations))
 	}
 
-	// 增加迭代计数
+	// Increment iteration count
 	newCount, err := supervisor.IncrementCount(sessionID)
 	if err != nil {
 		log.Warn("failed to increment count", "error", err.Error())
@@ -201,42 +189,30 @@ func RunSupervisorHook(opts *SupervisorHookCommand) error {
 		log.Info("iteration count", "count", newCount, "max", maxIterations)
 	}
 
-	// 运行 Supervisor 审查
+	// Run supervisor review
 	result, err := runSupervisorReview(sessionID, supervisorCfg, log)
 	if err != nil {
 		return err
 	}
 
-	// 输出结果
+	// Output result
 	if result == nil {
 		log.Info("no supervisor result found, allowing operation")
-		return outputDecisionByEventType(log, eventType, true, "no supervisor result found")
+		return supervisor.OutputDecision(log, eventType, true, "no supervisor result found")
 	}
 
-	return outputDecisionByEventType(log, eventType, result.AllowStop, result.Feedback)
+	return supervisor.OutputDecision(log, eventType, result.AllowStop, result.Feedback)
 }
 
-// outputDecisionByEventType 根据事件类型输出相应格式的决策
-func outputDecisionByEventType(log *slog.Logger, eventType supervisor.HookEventType, allow bool, feedback string) error {
-	switch eventType {
-	case supervisor.EventTypePreToolUse:
-		return supervisor.OutputPreToolUseDecision(log, allow, feedback)
-	case supervisor.EventTypeStop:
-		fallthrough
-	default:
-		return supervisor.OutputDecision(log, allow, feedback)
-	}
-}
-
-// runSupervisorReview 执行 Supervisor 审查流程
+// runSupervisorReview executes the supervisor review process.
 func runSupervisorReview(sessionID string, cfg *config.SupervisorConfig, log *slog.Logger) (*SupervisorResult, error) {
-	// 加载 supervisor prompt
+	// Load supervisor prompt
 	supervisorPrompt, promptSource := getDefaultSupervisorPrompt()
 	log.Debug("supervisor prompt loaded", "source", promptSource, "length", len(supervisorPrompt))
 
 	log.Info("starting supervisor review", "session_id", sessionID)
 
-	// 使用 Claude Agent SDK 运行 supervisor
+	// Run supervisor using Claude Agent SDK
 	result, err := runSupervisorWithSDK(context.Background(), sessionID, supervisorPrompt, cfg.Timeout(), log)
 	if err != nil {
 		log.Error("supervisor SDK failed", "error", err.Error())
@@ -331,7 +307,7 @@ func runSupervisorWithSDK(ctx context.Context, sessionID, prompt string, timeout
 	return result, nil
 }
 
-// parseResultJSON parses the JSON text into a SupervisorResult.
+// parseResultJSON parses JSON text into a SupervisorResult.
 // It uses the llmparser package for fault-tolerant JSON parsing.
 // When parsing fails, it returns a fallback result with allow_stop=false
 // and the original text as feedback, allowing the agent to continue working.
@@ -343,7 +319,7 @@ func parseResultJSON(jsonText string) *SupervisorResult {
 		// This allows the agent to continue working instead of failing
 		fallbackText := strings.TrimSpace(jsonText)
 		if fallbackText == "" {
-			fallbackText = "请继续完成任务"
+			fallbackText = "Please continue completing the task"
 		}
 		return &SupervisorResult{
 			AllowStop: false,
