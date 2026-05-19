@@ -1062,81 +1062,34 @@ func TestMergeWithPriority(t *testing.T) {
 	})
 }
 
-func TestEnsureStopHook(t *testing.T) {
-	hookCommand := "/usr/local/bin/ccc supervisor-hook"
-
-	t.Run("adds Stop hook when hooks does not exist", func(t *testing.T) {
+func TestRemoveStopHook(t *testing.T) {
+	t.Run("no hooks field", func(t *testing.T) {
 		settings := map[string]interface{}{
 			"otherField": "value",
 		}
 
-		result := EnsureStopHook(settings, hookCommand)
+		result := RemoveStopHook(settings)
 
-		// Should have hooks
-		hooks, exists := result["hooks"]
-		if !exists {
-			t.Fatal("hooks should exist")
+		// hooks should not exist
+		if _, exists := result["hooks"]; exists {
+			t.Error("hooks should not exist")
 		}
-
-		hooksMap := hooks.(map[string]interface{})
-		stopHook, exists := hooksMap["Stop"]
-		if !exists {
-			t.Fatal("Stop hook should exist")
-		}
-
-		// Stop hook should be an array with one element
-		stopArray, ok := stopHook.([]interface{})
-		if !ok {
-			t.Fatal("Stop hook should be an array")
-		}
-		if len(stopArray) != 1 {
-			t.Errorf("Stop hook should have 1 element, got %d", len(stopArray))
-		}
-
-		// Verify Stop hook content
-		stopConfig, ok := stopArray[0].(map[string]interface{})
-		if !ok {
-			t.Fatal("Stop hook config should be a map")
-		}
-
-		hooksArray, ok := stopConfig["hooks"].([]interface{})
-		if !ok {
-			t.Fatal("hooks should be an array")
-		}
-		if len(hooksArray) != 1 {
-			t.Errorf("hooks array should have 1 element, got %d", len(hooksArray))
-		}
-
-		hookEntry, ok := hooksArray[0].(map[string]interface{})
-		if !ok {
-			t.Fatal("hook entry should be a map")
-		}
-
-		if hookEntry["type"] != "command" {
-			t.Errorf("hook type should be 'command', got: %v", hookEntry["type"])
-		}
-		if hookEntry["command"] != hookCommand {
-			t.Errorf("hook command should be '%s', got: %v", hookCommand, hookEntry["command"])
-		}
-		if hookEntry["timeout"] != float64(600) {
-			t.Errorf("hook timeout should be 600, got: %v", hookEntry["timeout"])
-		}
-
 		// Other field should be preserved
 		if result["otherField"] != "value" {
 			t.Error("otherField should be preserved")
 		}
 	})
 
-	t.Run("replaces existing Stop hook", func(t *testing.T) {
+	t.Run("removes Stop hook containing supervisor-hook", func(t *testing.T) {
 		settings := map[string]interface{}{
 			"hooks": map[string]interface{}{
 				"Stop": []interface{}{
 					map[string]interface{}{
 						"hooks": []interface{}{
 							map[string]interface{}{
-								"type":    "other-type",
-								"command": "old-command",
+								"type":    "command",
+								"command": "/usr/local/bin/ccc supervisor-hook",
+								"timeout": float64(600),
 							},
 						},
 					},
@@ -1149,46 +1102,62 @@ func TestEnsureStopHook(t *testing.T) {
 			},
 		}
 
-		result := EnsureStopHook(settings, hookCommand)
+		result := RemoveStopHook(settings)
 
 		hooks := result["hooks"].(map[string]interface{})
-		stopArray := hooks["Stop"].([]interface{})
-		stopConfig := stopArray[0].(map[string]interface{})
-		hooksArray := stopConfig["hooks"].([]interface{})
-		hookEntry := hooksArray[0].(map[string]interface{})
 
-		if hookEntry["command"] != hookCommand {
-			t.Errorf("Stop hook command should be replaced, got: %v", hookEntry["command"])
+		// Stop should be removed
+		if _, exists := hooks["Stop"]; exists {
+			t.Error("Stop hook should be removed")
 		}
 
 		// PreToolUse should be preserved
-		_, exists := hooks["PreToolUse"]
-		if !exists {
+		if _, exists := hooks["PreToolUse"]; !exists {
 			t.Error("PreToolUse should be preserved")
 		}
 	})
 
-	t.Run("sets disableAllHooks to false", func(t *testing.T) {
+	t.Run("preserves disableAllHooks and allowManagedHooksOnly", func(t *testing.T) {
 		settings := map[string]interface{}{
-			"disableAllHooks": true,
+			"disableAllHooks":       true,
+			"allowManagedHooksOnly": true,
+			"otherField":            "value",
 		}
 
-		result := EnsureStopHook(settings, hookCommand)
+		result := RemoveStopHook(settings)
 
-		if result["disableAllHooks"] != false {
-			t.Errorf("disableAllHooks should be false, got: %v", result["disableAllHooks"])
+		if result["disableAllHooks"] != true {
+			t.Error("disableAllHooks should be preserved")
+		}
+		if result["allowManagedHooksOnly"] != true {
+			t.Error("allowManagedHooksOnly should be preserved")
+		}
+		if result["otherField"] != "value" {
+			t.Error("otherField should be preserved")
 		}
 	})
 
-	t.Run("sets allowManagedHooksOnly to false", func(t *testing.T) {
+	t.Run("cleans empty hooks map", func(t *testing.T) {
 		settings := map[string]interface{}{
-			"allowManagedHooksOnly": true,
+			"hooks": map[string]interface{}{
+				"Stop": []interface{}{
+					map[string]interface{}{
+						"hooks": []interface{}{
+							map[string]interface{}{
+								"type":    "command",
+								"command": "/usr/local/bin/ccc supervisor-hook",
+							},
+						},
+					},
+				},
+			},
 		}
 
-		result := EnsureStopHook(settings, hookCommand)
+		result := RemoveStopHook(settings)
 
-		if result["allowManagedHooksOnly"] != false {
-			t.Errorf("allowManagedHooksOnly should be false, got: %v", result["allowManagedHooksOnly"])
+		// hooks should be removed entirely
+		if _, exists := result["hooks"]; exists {
+			t.Error("hooks should be removed when empty")
 		}
 	})
 
@@ -1197,33 +1166,35 @@ func TestEnsureStopHook(t *testing.T) {
 			"otherKey": "value",
 		}
 
-		_ = EnsureStopHook(settings, hookCommand)
+		_ = RemoveStopHook(settings)
 
 		// Original should not be modified
-		if settings["newKey"] != nil {
+		if _, exists := settings["hooks"]; exists {
 			t.Error("Original settings should not be modified")
 		}
 	})
 
-	t.Run("preserves other fields", func(t *testing.T) {
+	t.Run("preserves non-supervisor Stop hooks", func(t *testing.T) {
 		settings := map[string]interface{}{
-			"field1": "value1",
-			"field2": 123,
-			"enabledPlugins": map[string]interface{}{
-				"plugin@marketplace": true,
+			"hooks": map[string]interface{}{
+				"Stop": []interface{}{
+					map[string]interface{}{
+						"hooks": []interface{}{
+							map[string]interface{}{
+								"type":    "command",
+								"command": "some-other-command",
+							},
+						},
+					},
+				},
 			},
 		}
 
-		result := EnsureStopHook(settings, hookCommand)
+		result := RemoveStopHook(settings)
 
-		if result["field1"] != "value1" {
-			t.Error("field1 should be preserved")
-		}
-		if result["field2"] != 123 {
-			t.Error("field2 should be preserved")
-		}
-		if result["enabledPlugins"] == nil {
-			t.Error("enabledPlugins should be preserved")
+		hooks := result["hooks"].(map[string]interface{})
+		if _, exists := hooks["Stop"]; !exists {
+			t.Error("non-supervisor Stop hook should be preserved")
 		}
 	})
 }

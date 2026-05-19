@@ -10,9 +10,6 @@ import (
 	"strings"
 )
 
-// stopHookTimeout is the timeout in seconds for the Supervisor Stop hook.
-const stopHookTimeout = 600 // 10 minutes
-
 // GetDirFunc is a function that returns the Claude configuration directory.
 // This variable allows tests to override the default behavior.
 var GetDirFunc = func() string {
@@ -36,7 +33,6 @@ func GetDir() string {
 // Settings and Providers use dynamic maps to handle arbitrary Claude settings fields.
 type Config struct {
 	Settings        map[string]interface{}            `json:"settings"`
-	Supervisor      *SupervisorConfig                 `json:"supervisor,omitempty"`
 	ClaudeArgs      []string                          `json:"claude_args,omitempty"`
 	CurrentProvider string                            `json:"current_provider"`
 	Providers       map[string]map[string]interface{} `json:"providers"`
@@ -316,46 +312,68 @@ func MergeWithPriority(baseSettings, providerSettings, userSettings map[string]i
 	return result
 }
 
-// EnsureStopHook ensures that Supervisor Stop hook exists in settings.
-// It preserves user's other hooks configuration.
-// Returns a new map with hook ensured.
-func EnsureStopHook(settings map[string]interface{}, hookCommand string) map[string]interface{} {
+// RemoveStopHook removes the Supervisor Stop hook from settings.
+// It cleans up supervisor-hook entries in hooks.Stop, and removes
+// empty Stop arrays and empty hooks maps.
+// User settings like disableAllHooks and allowManagedHooksOnly are left untouched.
+// Returns a new map with supervisor hooks removed.
+func RemoveStopHook(settings map[string]interface{}) map[string]interface{} {
 	// Deep copy to avoid modifying input
 	result := deepCopy(settings)
 	if result == nil {
-		result = make(map[string]interface{})
+		return make(map[string]interface{})
 	}
 
-	// Ensure hooks map exists
-	var hooks map[string]interface{}
-	if hooksVal, exists := result["hooks"]; exists {
-		var ok bool
-		hooks, ok = hooksVal.(map[string]interface{})
-		if !ok {
-			// hooks is not a map, replace it
-			hooks = make(map[string]interface{})
+	// Check if hooks exist
+	hooksVal, exists := result["hooks"]
+	if !exists {
+		return result
+	}
+
+	hooks, ok := hooksVal.(map[string]interface{})
+	if !ok {
+		return result
+	}
+
+	// Filter Stop hook entries to remove supervisor-hook commands
+	stopVal, exists := hooks["Stop"]
+	if exists {
+		if stopArr, ok := stopVal.([]interface{}); ok {
+			filtered := make([]interface{}, 0)
+			for _, entry := range stopArr {
+				if entryMap, ok := entry.(map[string]interface{}); ok {
+					if innerHooks, ok := entryMap["hooks"].([]interface{}); ok {
+						// Filter inner hooks to remove supervisor-hook
+						innerFiltered := make([]interface{}, 0)
+						for _, h := range innerHooks {
+							if hMap, ok := h.(map[string]interface{}); ok {
+								if cmd, ok := hMap["command"].(string); ok && strings.Contains(cmd, "supervisor-hook") {
+									continue
+								}
+							}
+							innerFiltered = append(innerFiltered, h)
+						}
+						if len(innerFiltered) > 0 {
+							entryMap["hooks"] = innerFiltered
+							filtered = append(filtered, entryMap)
+						}
+					} else {
+						filtered = append(filtered, entry)
+					}
+				}
+			}
+			if len(filtered) == 0 {
+				delete(hooks, "Stop")
+			} else {
+				hooks["Stop"] = filtered
+			}
 		}
-	} else {
-		// hooks doesn't exist, create it
-		hooks = make(map[string]interface{})
 	}
 
-	// Create Supervisor Stop hook
-	stopHookConfig := map[string]interface{}{
-		"hooks": []interface{}{
-			map[string]interface{}{
-				"type":    "command",
-				"command": hookCommand,
-				"timeout": float64(stopHookTimeout),
-			},
-		},
+	// Remove hooks field if empty
+	if len(hooks) == 0 {
+		delete(result, "hooks")
 	}
-	hooks["Stop"] = []interface{}{stopHookConfig}
-	result["hooks"] = hooks
-
-	// Ensure hooks can execute
-	result["disableAllHooks"] = false
-	result["allowManagedHooksOnly"] = false
 
 	return result
 }

@@ -3,6 +3,7 @@ package provider
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -101,9 +102,9 @@ func TestSwitchWithHook(t *testing.T) {
 			t.Error("Settings should not contain 'env' field")
 		}
 
-		// Verify hooks are present
-		if _, exists := result.Settings["hooks"]; !exists {
-			t.Error("Settings should contain 'hooks' field")
+		// Verify hooks are NOT present (supervisor cleaned up)
+		if _, exists := result.Settings["hooks"]; exists {
+			t.Error("Settings should not contain .hooks. field (supervisor hooks cleaned up)")
 		}
 
 		// Verify current_provider updated
@@ -117,18 +118,63 @@ func TestSwitchWithHook(t *testing.T) {
 			t.Errorf("Settings file should exist at %s", settingsPath)
 		}
 
-		// Verify supervisor command files were created
+		// Verify supervisor command files are cleaned up (not created)
 		commandsDir := config.GetDir() + "/commands"
 		supervisorOnPath := commandsDir + "/supervisor.md"
 		supervisorOffPath := commandsDir + "/supervisoroff.md"
-		if _, err := os.Stat(supervisorOnPath); os.IsNotExist(err) {
-			t.Errorf("supervisor.md should exist at %s", supervisorOnPath)
+		if _, err := os.Stat(supervisorOnPath); err == nil {
+			t.Errorf("supervisor.md should not exist at %s", supervisorOnPath)
 		}
-		if _, err := os.Stat(supervisorOffPath); os.IsNotExist(err) {
-			t.Errorf("supervisoroff.md should exist at %s", supervisorOffPath)
+		if _, err := os.Stat(supervisorOffPath); err == nil {
+			t.Errorf("supervisoroff.md should not exist at %s", supervisorOffPath)
+
+			// Verify supervisor state/log files are cleaned up
+			stateDir := config.GetDir() + "/ccc"
+			stateFiles, _ := filepath.Glob(stateDir + "/supervisor-*.json")
+			logFiles, _ := filepath.Glob(stateDir + "/supervisor-*.log")
+			if len(stateFiles) > 0 {
+				t.Errorf("supervisor state files should be cleaned up, found %d", len(stateFiles))
+			}
+			if len(logFiles) > 0 {
+				t.Errorf("supervisor log files should be cleaned up, found %d", len(logFiles))
+			}
 		}
 	})
 
+	t.Run("cleans up old supervisor state/log files", func(t *testing.T) {
+		cleanup := setupTestDir(t)
+		defer cleanup()
+
+		cfg := setupTestConfig(t)
+
+		// Pre-create supervisor state and log files
+		stateDir := config.GetDir() + "/ccc"
+		if err := os.MkdirAll(stateDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		stateFile := stateDir + "/supervisor-old-session-123.json"
+		logFile := stateDir + "/supervisor-old-session-123.log"
+		if err := os.WriteFile(stateFile, []byte(`{"enabled":true}`), 0644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(logFile, []byte("old log"), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		// Switch provider - should clean up the old files
+		_, err := SwitchWithHook(cfg, "glm")
+		if err != nil {
+			t.Fatalf("SwitchWithHook() error = %v", err)
+		}
+
+		// Verify old state/log files are deleted
+		if _, err := os.Stat(stateFile); err == nil {
+			t.Errorf("supervisor state file %s should be deleted", stateFile)
+		}
+		if _, err := os.Stat(logFile); err == nil {
+			t.Errorf("supervisor log file %s should be deleted", logFile)
+		}
+	})
 	t.Run("switch to non-existing provider", func(t *testing.T) {
 		cleanup := setupTestDir(t)
 		defer cleanup()
