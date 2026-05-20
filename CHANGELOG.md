@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Removed `supervisor-hook` and `supervisor-mode` CLI commands
   - Removed slash command files (`supervisor.md`, `supervisoroff.md`)
   - Project rebranded as "Claude Code Configuration Switcher"
+  - Repository renamed back to `claude-code-config-switcher` (GitHub redirects the old URL)
 
 ### Added
 
@@ -132,10 +133,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Repositioned project as "Claude Code Supervisor"
 - Repository renamed from `claude-code-config-switcher` to `claude-code-supervisor`
 
-[0.4.0]: https://github.com/guyskk/claude-code-supervisor/compare/v0.3.3...v0.4.0
-[0.3.3]: https://github.com/guyskk/claude-code-supervisor/compare/v0.3.2...v0.3.3
-[0.3.2]: https://github.com/guyskk/claude-code-supervisor/compare/v0.3.1...v0.3.2
-[0.3.1]: https://github.com/guyskk/claude-code-supervisor/compare/v0.3.0...v0.3.1
-[0.3.0]: https://github.com/guyskk/claude-code-supervisor/compare/v0.2.1...v0.3.0
-[0.2.1]: https://github.com/guyskk/claude-code-supervisor/compare/v0.2.0...v0.2.1
-[0.2.0]: https://github.com/guyskk/claude-code-supervisor/releases/tag/v0.2.0
+[0.4.0]: https://github.com/guyskk/claude-code-config-switcher/compare/v0.3.3...v0.4.0
+[0.3.3]: https://github.com/guyskk/claude-code-config-switcher/compare/v0.3.2...v0.3.3
+[0.3.2]: https://github.com/guyskk/claude-code-config-switcher/compare/v0.3.1...v0.3.2
+[0.3.1]: https://github.com/guyskk/claude-code-config-switcher/compare/v0.3.0...v0.3.1
+[0.3.0]: https://github.com/guyskk/claude-code-config-switcher/compare/v0.2.1...v0.3.0
+[0.2.1]: https://github.com/guyskk/claude-code-config-switcher/compare/v0.2.0...v0.2.1
+[0.2.0]: https://github.com/guyskk/claude-code-config-switcher/releases/tag/v0.2.0
