@@ -1,19 +1,10 @@
-# ccc - Claude Code Supervisor
+# ccc - Claude Code Configuration Switcher
 
 [English](README.md) | [中文文档](README-CN.md)
 
 ## Why ccc?
 
-`ccc` is a CLI tool that enhances Claude Code with two core features:
-
-1. **Supervisor Mode**: ⭐ Automatic task review that ensures high-quality, deliverable work
-2. **Seamless Provider Switching**: Switch between Kimi, GLM, MiniMax, and other providers with one command
-
-**Better than `ralph-claude-code`**:
-
-- Supervisor Mode uses a Stop Hook triggered review with a strict framework that significantly improves task completion and quality.
-- Unlike ralph's signal-based exit detection, ccc's Supervisor forks the full session context to evaluate actual work quality.
-- This prevents fake completions where AI claims "done" but the result has poor quality or unresolved issues.
+`ccc` is a CLI tool that provides seamless provider switching for Claude Code. Switch between Kimi, GLM, MiniMax, and other providers with one command.
 
 ## Quick Start
 
@@ -91,44 +82,6 @@ ccc validate
 ccc validate --all
 ```
 
-## Supervisor Mode (Recommended)
-
-Supervisor Mode is the most valuable feature of `ccc`. It automatically reviews the Agent's work after each stop and provides feedback if incomplete.
-
-### How to Use
-
-1. Start `ccc`, chat with the Agent to confirm requirements and approach:
-
-   ```bash
-   ccc
-   ```
-
-2. Enable Supervisor Mode using the slash command:
-
-   ```text
-   /supervisor OK, start executing
-   ```
-
-3. The Agent will execute the task, and Supervisor will automatically review after each stop
-   - If work is incomplete, Supervisor provides feedback and Agent continues
-   - This repeats until Supervisor confirms the work is complete
-
-### How It Works
-
-1. Agent completes a task and stops, triggering Claude Code's Stop Hook
-2. Supervisor (a Claude instance) performs a strict review
-3. If work is incomplete or low quality, Supervisor provides feedback
-4. Agent continues with the feedback
-5. This repeats until Supervisor confirms the work is complete
-
-### Statusline Display
-
-You can configure the statusline in Claude Code to show Supervisor Mode status:
-
-```text
-/statusline Help me configure a statusline script that calls `ccc supervisor-mode` command, which outputs "on" or "off". I want it to display like "... | supervisor on"
-```
-
 ## Patch Command: Replace `claude` with `ccc`
 
 Make `ccc` your default Claude Code by replacing the system `claude` command.
@@ -165,8 +118,7 @@ Config file location, default: `~/.claude/ccc.json`
 
 #### What Gets Managed
 
-- 🤖 Supervisor Stop hook - automatically added/ensured
-- ⚙️ Hook execution flags - `disableAllHooks` and `allowManagedHooksOnly` set to `false` to ensure hooks work
+- 🧹 Supervisor Stop hook - automatically cleaned up if present from previous versions
 
 #### Environment Variable Conflicts (Hard Guard)
 
@@ -186,7 +138,7 @@ When you run `ccc`:
 1. Your existing `settings.json` is read (if it exists)
 2. Configuration is merged with priority: `user > provider > base`
 3. Environment variables from provider are passed via command line (not written to settings.json)
-4. Supervisor Stop hook is added (if needed) while preserving your other hooks
+4. Leftover Supervisor hooks are cleaned up
 
 This ensures your manual configuration is never lost!
 
@@ -197,10 +149,6 @@ This ensures your manual configuration is never lost!
       "defaultMode": "bypassPermissions"
     },
     "alwaysThinkingEnabled": true
-  },
-  "supervisor": {
-    "max_iterations": 20,
-    "timeout_seconds": 600
   },
   "claude_args": ["--verbose"],
   "current_provider": "glm",
@@ -229,7 +177,6 @@ This ensures your manual configuration is never lost!
 | Field               | Description                                  |
 | ------------------- | -------------------------------------------- |
 | `settings`          | Shared Claude Code config template for all providers |
-| `supervisor`        | Supervisor mode configuration (optional)     |
 | `claude_args`       | Fixed arguments to pass to Claude Code (optional) |
 | `current_provider`  | Currently used provider (auto-managed by ccc) |
 | `providers.{name}`  | Provider-specific Claude Code configuration  |
@@ -246,17 +193,6 @@ Each provider only needs to specify the fields it wants to override. Common fiel
 | `env.ANTHROPIC_SMALL_FAST_MODEL`  | Fast model for quick tasks     |
 
 **How merging works**: Provider settings are deep-merged with the base template. Provider `env` takes precedence over `settings.env`.
-
-### Supervisor Configuration
-
-| Field              | Description                                    | Default |
-| ----------------- | ---------------------------------------------- | ------- |
-| `max_iterations`  | Maximum iterations before forcing stop         | `20`    |
-| `timeout_seconds` | Timeout per supervisor call in seconds        | `600`   |
-
-### Custom Supervisor Prompt
-
-Create `~/.claude/SUPERVISOR.md` to customize the Supervisor prompt. This file overrides the default review behavior with your own instructions.
 
 ### Environment Variables
 

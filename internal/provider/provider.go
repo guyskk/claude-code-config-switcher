@@ -26,13 +26,13 @@ type SwitchResult struct {
 	EnvVars []EnvPair
 }
 
-// SwitchWithHook switches to the specified provider and adds Stop hook configuration.
+// SwitchWithHook switches to the specified provider and cleans up supervisor hooks.
 // It generates settings.json with merged configuration from:
 //  1. Existing settings.json (user config - highest priority)
 //  2. ccc.json settings (base template)
 //  3. Provider settings (provider-specific)
 //
-// It also creates slash command files for enabling/disabling Supervisor mode.
+// It also removes any leftover supervisor artifacts (slash commands, state, logs).
 // Returns the merged env that should be passed to the claude subprocess.
 func SwitchWithHook(cfg *config.Config, providerName string) (*SwitchResult, error) {
 	if cfg == nil {
@@ -68,28 +68,18 @@ func SwitchWithHook(cfg *config.Config, providerName string) (*SwitchResult, err
 	// Merge settings with priority: user > provider > base
 	mergedSettings := config.MergeWithPriority(cfg.Settings, providerSettings, userSettings)
 
-	// Get ccc absolute path for hook command
-	cccPath, err := os.Executable()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get ccc executable path: %w", err)
-	}
-
-	// Build hook command (no --state-dir parameter, state dir is handled internally)
-	hookCommand := fmt.Sprintf("%s supervisor-hook", cccPath)
-
-	// Ensure Supervisor Stop hook exists (preserves user's other hooks)
-	// This also sets disableAllHooks and allowManagedHooksOnly to false
-	settingsWithHook := config.EnsureStopHook(mergedSettings, hookCommand)
+	// Remove Supervisor Stop hook and related fields
+	cleanedSettings := config.RemoveStopHook(mergedSettings)
 
 	// Remove merged env from settings, replace with filtered user env
-	delete(settingsWithHook, "env")
+	delete(cleanedSettings, "env")
 	if filtered := config.FilterUserEnvForSettings(userEnvMap, managedEnvKeys); len(filtered) > 0 {
-		settingsWithHook["env"] = filtered
+		cleanedSettings["env"] = filtered
 	}
 
 	// Save merged settings to settings.json
 	settingsPath := config.GetSettingsPath()
-	settingsData, err := json.MarshalIndent(settingsWithHook, "", "  ")
+	settingsData, err := json.MarshalIndent(cleanedSettings, "", "  ")
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal settings: %w", err)
 	}
@@ -97,10 +87,8 @@ func SwitchWithHook(cfg *config.Config, providerName string) (*SwitchResult, err
 		return nil, fmt.Errorf("failed to write settings: %w", err)
 	}
 
-	// Create slash command files for enabling/disabling Supervisor mode
-	if err := createSupervisorCommandFiles(cccPath); err != nil {
-		return nil, fmt.Errorf("failed to create supervisor command files: %w", err)
-	}
+	// Clean up any leftover supervisor artifacts
+	cleanupSupervisorArtifacts()
 
 	// Update current_provider in ccc.json
 	cfg.CurrentProvider = providerName
@@ -115,36 +103,30 @@ func SwitchWithHook(cfg *config.Config, providerName string) (*SwitchResult, err
 	envVars := envMapToPairs(subprocessEnvMap)
 
 	return &SwitchResult{
-		Settings: settingsWithHook,
+		Settings: cleanedSettings,
 		EnvVars:  envVars,
 	}, nil
 }
 
-// createSupervisorCommandFiles creates the slash command files for enabling/disabling Supervisor mode.
-func createSupervisorCommandFiles(cccPath string) error {
-	// Get the commands directory
+// cleanupSupervisorArtifacts removes leftover supervisor files:
+//   - slash command files (supervisor.md, supervisoroff.md)
+//   - state files (supervisor-*.json) and log files (supervisor-*.log)
+func cleanupSupervisorArtifacts() {
 	commandsDir := config.GetDir() + "/commands"
+	os.Remove(commandsDir + "/supervisor.md")
+	os.Remove(commandsDir + "/supervisoroff.md")
 
-	// Ensure commands directory exists
-	if err := os.MkdirAll(commandsDir, 0755); err != nil {
-		return fmt.Errorf("failed to create commands directory: %w", err)
+	stateDir := config.GetDir() + "/ccc"
+	entries, err := os.ReadDir(stateDir)
+	if err != nil {
+		return
 	}
-
-	// Create supervisor.md (enable command)
-	supervisorOnContent := fmt.Sprintf("---\ndescription: Enable supervisor mode\n---\n$ARGUMENTS!`%s supervisor-mode on`\n", cccPath)
-	supervisorOnPath := commandsDir + "/supervisor.md"
-	if err := os.WriteFile(supervisorOnPath, []byte(supervisorOnContent), 0644); err != nil {
-		return fmt.Errorf("failed to write command supervisor.md: %w", err)
+	for _, entry := range entries {
+		name := entry.Name()
+		if strings.HasPrefix(name, "supervisor-") && (strings.HasSuffix(name, ".json") || strings.HasSuffix(name, ".log")) {
+			os.Remove(stateDir + "/" + name)
+		}
 	}
-
-	// Create supervisoroff.md (disable command)
-	supervisorOffContent := fmt.Sprintf("---\ndescription: Disable supervisor mode\n---\n$ARGUMENTS!`%s supervisor-mode off`\n", cccPath)
-	supervisorOffPath := commandsDir + "/supervisoroff.md"
-	if err := os.WriteFile(supervisorOffPath, []byte(supervisorOffContent), 0644); err != nil {
-		return fmt.Errorf("failed to write command supervisoroff.md: %w", err)
-	}
-
-	return nil
 }
 
 // envMapToPairs converts a map[string]interface{} to []EnvPair.

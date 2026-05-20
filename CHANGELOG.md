@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- Supervisor mode (replaced by Claude Code's built-in goal and loop functionality)
+  - Removed all supervisor-related code, tests, config, and dependencies
+  - Removed supervisor-hook and supervisor-mode CLI commands
+  - Removed slash command files (supervisor.md, supervisoroff.md)
+  - Project rebranded as "Claude Code Configuration Switcher"
+
 ## [0.3.0] - 2026-01-16
 
 ### Added
