@@ -2,7 +2,7 @@
 
 日期：2026-05-19
 话题：核实 ccc 切换 provider 时 env 的生效优先级，评估 PR #79 的方案是否安全。
-触发：https://github.com/guyskk/claude-code-supervisor/pull/79
+触发：https://github.com/guyskk/claude-code-config-switcher/pull/79
 
 > 本文件 Append-only，只追加不覆盖。
 
