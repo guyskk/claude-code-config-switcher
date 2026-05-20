@@ -15,6 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Removed slash command files (supervisor.md, supervisoroff.md)
   - Project rebranded as "Claude Code Configuration Switcher"
 
+### Changed
+
+- Streamlined README/README-CN: trimmed the Configuration Merge Strategy section
+  and removed leftover Supervisor references now that supervisor mode is gone.
+
 ## [0.3.0] - 2026-01-16
 
 ### Added
