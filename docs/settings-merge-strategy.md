@@ -71,28 +71,31 @@ ccc 不应该：
 
 ## 字段处理策略
 
-### 1. env 字段 - 硬守卫（不再自动剥离）
+### 1. env 字段 - 通过 `--settings` 自动覆盖
 
-**当前策略**：检测到冲突即报错中止，ccc 永不修改 settings.json 的 `env` 字段。
+**当前策略**：ccc 永不修改 settings.json 的 `env` 字段。冲突的 key 通过 `--settings` CLI 参数自动覆盖。
 
-> **破坏性变化（2026-05-19 更新）**：早期版本会静默剥离 settings.json `env` 中的 `ANTHROPIC_*`/`CLAUDE_*` 或与 provider/base 同名的 key。实测确认 Claude Code 中 `settings.json` 的 `env` 严格覆盖进程 env，因此残留任何冲突 key 都会导致切换 provider 静默失效。当前实现改为**硬守卫**：检测到冲突就直接报错中止（不启动 claude，也不放行 `ccc validate`），由用户自行清理 settings.json，避免静默丢配置或静默用错配置两种风险。详见 `docs/discuss-20260519-env-priority.md`。
+> **变化历史**：
+> - 早期版本会静默剥离 settings.json `env` 中的冲突 key（导致用户配置丢失）。
+> - 2026-05-19 改为"硬守卫"：检测到冲突就报错中止，由用户自行清理。
+> - 2026-06-09 改为"自动覆盖"：通过 `--settings` CLI 参数传入 provider env，利用 Command line arguments 的高优先级（高于 User settings）自动覆盖冲突 key。详见 `docs/discuss-20260609-env-override.md`。
 
-**冲突判据**（命中任一即冲突）：
-- key 以 `ANTHROPIC_` 或 `CLAUDE_` 开头；
-- key 与 base env（`ccc.json` 的 `settings.env`）或 provider env（`ccc.json` 的 `providers.<name>.env`）同名（managed key）。
+**工作原理**：
+1. Claude Code 的 settings 优先级：Enterprise > **Command line arguments** > Local > Project > **User**（`~/.claude/settings.json`）
+2. `--settings` 属于 Command line arguments 级别，优先级高于 User settings
+3. ccc 在启动 claude 时，将 provider env 序列化为 `{"env": {...}}` JSON，通过 `--settings` 参数传入
+4. Claude Code 合并 env 时，`--settings` 的同名 key 覆盖 settings.json 的 key，不同 key 各自保留
 
-**冲突报错**：列出每个冲突 key 的名称（**不打印 value，避免密钥泄露**）、原因、settings.json / ccc.json 文件路径、以及修复指引（用户自行从 settings.json 删除冲突 key，provider 配置移到 ccc.json）。
-
-**传递给子进程的 env**（无冲突时的正常路径）：
-- 只包含 base + provider 的 env；
-- 不包含用户 settings.json 的 env（Claude Code 自己从 settings.json 读取非冲突的用户自定义 env）。
-
-**非冲突的用户自定义 env**（如 `MY_CUSTOM_VAR`）：完全保留在 settings.json 中、不被修改、不被进入子进程合并 env，行为不变。
+**效果**：
+- settings.json 保留用户完整 env（包括 `ANTHROPIC_*`/`CLAUDE_*`）→ 用户手动配置不丢失
+- `--settings` 的 provider env 覆盖冲突 key → provider 切换正确生效
+- 非冲突的用户自定义 env（如 `MY_CUSTOM_VAR`）仍然保留 → 不受影响
+- 不需要报错中止 → 用户体验更好
 
 **示例**：
 
 ```json
-// settings.json 初始内容
+// settings.json 初始内容（保持不变）
 {
   "env": {
     "ANTHROPIC_MODEL": "claude-3.7-sonnet",
@@ -100,14 +103,14 @@ ccc 不应该：
   }
 }
 
-// provider env
+// provider env（通过 --settings 传入）
 {
   "ANTHROPIC_BASE_URL": "https://open.bigmodel.cn/api/anthropic",
   "ANTHROPIC_MODEL": "glm-4.7"
 }
 ```
 
-**结果**：ccc 检测到 `ANTHROPIC_MODEL` 冲突 → 报错中止，settings.json 保持原样，由用户决定是删除该 key 还是把 `ANTHROPIC_MODEL` 留作个人偏好（删除后即生效 provider 值）。`MY_CUSTOM_VAR` 不受影响。
+**结果**：`ANTHROPIC_MODEL` 被 `--settings` 的 provider 值覆盖（`glm-4.7`），`MY_CUSTOM_VAR` 保留，settings.json 保持原样。
 
 ---
 
@@ -321,7 +324,7 @@ func EnsureStopHook(settings map[string]interface{}, hookCommand string) map[str
 
 ## 执行流程
 
-### SwitchWithHook() 新流程
+### SwitchWithHook() 流程
 
 ```
 开始
@@ -337,8 +340,6 @@ func EnsureStopHook(settings map[string]interface{}, hookCommand string) map[str
   │   ├─→ baseEnvMap = GetEnv(cfg.Settings)
   │   └─→ providerEnvMap = GetEnv(providerSettings)
   │
-  ├─→ 构建 managedEnvKeys = base env keys + provider env keys
-  │
   ├─→ MergeWithPriority(baseSettings, providerSettings, userSettings)
   │   │
   │   └─→ merged = DeepMerge(DeepCopy(baseSettings), providerSettings)
@@ -350,12 +351,13 @@ func EnsureStopHook(settings map[string]interface{}, hookCommand string) map[str
   ├─→ delete(merged, "env")
   │   └─→ 移除合并后的 env
   │
-  ├─→ FilterUserEnvForSettings(userEnvMap, managedEnvKeys)
-  │   └─→ 过滤用户 env，保留安全 key
-  │   └─→ 如果有结果，写入 merged["env"]
+  ├─→ 保留用户完整 env（不再过滤冲突 key）
+  │   └─→ 如果 userEnvMap 非空，写入 merged["env"]
   │
   ├─→ MergeEnvMaps(baseEnvMap, providerEnvMap)
   │   └─→ 子进程 env = base + provider（不含用户 env）
+  │
+  ├─→ ProviderEnv = subprocessEnvMap（用于 --settings JSON）
   │
   └─→ 保存 merged 到 settings.json
 ```
