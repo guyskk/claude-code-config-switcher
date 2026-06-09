@@ -59,3 +59,106 @@ Examples:
   ./check.sh                          # Run all checks
   ./check.sh --lint                   # Run lint only
 ```
+
+## 发版流程
+
+### 版本号规范
+
+遵循 [Semantic Versioning](https://semver.org/) 规范：
+- **Major (X.0.0)**: 破坏性变更，用户需要修改配置或代码
+- **Minor (0.X.0)**: 新功能，向后兼容
+- **Patch (0.0.X)**: Bug 修复，向后兼容
+
+### 发版前检查清单
+
+1. **代码质量检查**
+   ```bash
+   ./check.sh  # 运行完整的 lint、test、build 检查
+   ```
+
+2. **CHANGELOG 更新**
+   - 在 `CHANGELOG.md` 顶部添加新版本记录
+   - 按照 [Keep a Changelog](https://keepachangelog.com/) 格式编写
+   - 分类：Added、Changed、Deprecated、Removed、Fixed、Security
+   - 包含相关 PR 编号（如 #85、#86）
+   - 更新底部的版本比较链接
+
+3. **版本号判断**
+   - 分析自上个版本以来的所有提交
+   - 根据变更类型决定版本号：
+     - 有破坏性变更 → Major
+     - 有新功能 → Minor
+     - 仅 bug 修复 → Patch
+
+### Git 发版流程
+
+由于 main 分支设置了保护规则，必须通过 PR 合并：
+
+1. **创建 release 分支**
+   ```bash
+   git checkout main
+   git pull origin main
+   git checkout -b release/vX.Y.Z
+   ```
+
+2. **更新 CHANGELOG**
+   ```bash
+   # 编辑 CHANGELOG.md 添加新版本记录
+   git add CHANGELOG.md
+   git commit -m "docs(changelog): release vX.Y.Z"
+   ```
+
+3. **推送并创建 PR**
+   ```bash
+   git push origin release/vX.Y.Z
+   gh pr create --base main --head release/vX.Y.Z \
+     --title "docs(changelog): release vX.Y.Z" \
+     --body "Release vX.Y.Z with [简要说明主要变更]"
+   ```
+
+4. **合并 PR 后创建 tag**
+   ```bash
+   git checkout main
+   git pull origin main
+   git tag vX.Y.Z
+   git push origin vX.Y.Z  # 推送 tag 自动触发发布
+   ```
+
+5. **清理 release 分支**（可选）
+   ```bash
+   git branch -d release/vX.Y.Z
+   git push origin --delete release/vX.Y.Z
+   ```
+
+### 自动发布机制
+
+- 推送 tag 会自动触发 GitHub Actions 发布流程
+- 无需手动创建 GitHub Release
+- 二进制文件会自动构建并上传到 Release
+
+### CHANGELOG 编写规范
+
+```markdown
+## [X.Y.Z] - YYYY-MM-DD
+
+### Added
+- 新功能说明 (#PR_NUMBER)
+
+### Changed
+- 功能变更说明 (#PR_NUMBER)
+
+### Fixed
+- Bug 修复说明 (#PR_NUMBER)
+
+### Removed
+- 移除功能说明 (#PR_NUMBER)
+
+[X.Y.Z]: https://github.com/guyskk/claude-code-config-switcher/compare/vA.B.C...vX.Y.Z
+```
+
+### 版本号判断示例
+
+- 仅修复了 settings.json 环境变量冲突问题 → **Patch (0.4.1)**
+- 新增了 --settings 参数自动覆盖功能 → **Minor (0.5.0)**
+- 移除了旧的 env_guard 检查机制 → **Minor (0.5.0)**（向后兼容的改进）
+- 修改了配置文件格式，用户需要迁移 → **Major (1.0.0)**
