@@ -144,21 +144,47 @@ func filterEnvVars(env []string, shouldKeep func(string) bool) []string {
 
 // buildProviderSettingsJSON serializes provider env into a JSON string
 // suitable for passing to claude --settings.
+//
+// It also loads settings.json to detect ANTHROPIC_*/CLAUDE_* keys that the
+// provider does not define, and sets them to empty string in the --settings JSON.
+// This prevents stale values in settings.json (e.g. ANTHROPIC_MODEL from a
+// previous provider) from leaking into the current session.
+//
 // Environment variable references like ${VAR} are expanded before serialization.
-// Returns empty string if providerEnv is nil or empty.
+// Returns empty string if the resulting env map is empty.
 func buildProviderSettingsJSON(providerEnv map[string]interface{}) (string, error) {
 	if len(providerEnv) == 0 {
 		return "", nil
 	}
 
-	// Expand env var references
-	expanded := make(map[string]interface{}, len(providerEnv))
+	// Start with provider env, expanding ${VAR} references
+	settingsEnv := make(map[string]interface{}, len(providerEnv))
 	for k, v := range providerEnv {
-		expanded[k] = os.ExpandEnv(fmt.Sprintf("%v", v))
+		settingsEnv[k] = os.ExpandEnv(fmt.Sprintf("%v", v))
+	}
+
+	// Load settings.json to detect potential conflict keys.
+	// For any ANTHROPIC_*/CLAUDE_* key in settings.json that the provider does NOT
+	// define, set it to empty string in --settings to prevent stale values from
+	// leaking into the session (e.g. ANTHROPIC_MODEL from a previous provider).
+	userSettings, err := config.LoadSettings()
+	if err == nil && userSettings != nil {
+		userEnvMap := config.GetEnv(userSettings)
+		for key := range userEnvMap {
+			if strings.HasPrefix(key, "ANTHROPIC_") || strings.HasPrefix(key, "CLAUDE_") {
+				if _, providerHasKey := settingsEnv[key]; !providerHasKey {
+					settingsEnv[key] = ""
+				}
+			}
+		}
+	}
+
+	if len(settingsEnv) == 0 {
+		return "", nil
 	}
 
 	settings := map[string]interface{}{
-		"env": expanded,
+		"env": settingsEnv,
 	}
 	data, err := json.Marshal(settings)
 	if err != nil {
