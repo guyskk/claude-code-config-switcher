@@ -237,3 +237,68 @@ Claude Code 提供 `--settings <file-or-json>` 命令行参数，描述为 "Path
 
 ---
 
+## 第 5 轮：用户提问 — CLAUDE_*/ANTHROPIC_* 非冲突场景验证
+
+### 5.1 用户问题
+
+settings.json 有 `CLAUDE_*`/`ANTHROPIC_*` env，但 ccc provider 没有定义同名 key 时，这些 env 是否保留？
+
+### 5.2 分析
+
+`--settings` 的 env 与 settings.json 的 env 是**合并**关系：
+- 同名 key → `--settings` 覆盖
+- 不同 key → 各自保留
+
+如果 settings.json 有 `CLAUDE_CODE_MAX_OUTPUT_TOKENS=1000`，而 provider env 没有这个 key，那么 `--settings` JSON 中不包含它，settings.json 的值保留生效。
+
+这**应该是正确行为** — 用户设置的非冲突 env 应该保留。
+
+### 5.3 完整验证（claude 2.1.169，真实进程）
+
+**场景 1 — 冲突覆盖**：
+- settings.json: `ANTHROPIC_BASE_URL=http://settings-json:19991`
+- `--settings`: `ANTHROPIC_BASE_URL=http://provider:19992`
+- 结果：连接 `provider:19992` ✅（`--settings` 覆盖）
+
+**场景 2b — 非冲突保留**：
+- settings.json: `CCC_TEST_CLAUDE_VAR=HELLO_FROM_SETTINGS`
+- `--settings`: `CCC_TEST_PROVIDER_VAR=HELLO_FROM_PROVIDER`
+- 结果：两个 env 都保留 ✅
+
+**场景 3 — ANTHROPIC_MODEL 非冲突保留**：
+- settings.json: `ANTHROPIC_MODEL=my-custom-model-from-settings`
+- `--settings`: 无此 key
+- 结果：claude 使用 `my-custom-model-from-settings`（400 错误 = 模型名无效）✅
+
+**场景 4b — 冲突+非冲突混合**：
+- settings.json: `CCC_CONFLICT_KEY=from-settings`, `CCC_KEPT_KEY=kept-from-settings`
+- `--settings`: `CCC_CONFLICT_KEY=from-provider`
+- 结果：`CCC_CONFLICT_KEY=from-provider`（覆盖），`CCC_KEPT_KEY=kept-from-settings`（保留）✅
+
+**场景 5 — 多个 CLAUDE_*/ANTHROPIC_* 非冲突保留**：
+- settings.json: `CLAUDE_CODE_MAX_OUTPUT_TOKENS=2000`, `CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR=1`, `ANTHROPIC_SMALL_FAST_MODEL=claude-haiku-3`
+- `--settings`: 无这些 key
+- 结果：三个 env 全部保留 ✅
+
+**场景 6 — 进程 env 保留**：
+- 进程 env: `ANTHROPIC_PROCESS_TEST=anthropic-from-process`
+- settings.json: 无 env
+- 结果：进程 env 保留 ✅
+
+**场景 7 — 完整链路（模拟 ccc）**：
+- settings.json: `ANTHROPIC_BASE_URL=http://old-settings:19991`, `MY_VAR=keep-me`, `API_TIMEOUT=99999`
+- `--settings`: `API_TIMEOUT=30000`, `ANTHROPIC_BASE_URL=http://ccc-provider:19992`, `ANTHROPIC_AUTH_TOKEN=sk-test`
+- 结果：`ANTHROPIC_BASE_URL` 覆盖为 `ccc-provider:19992`，`API_TIMEOUT` 覆盖为 `30000`，`MY_VAR` 保留 ✅
+
+### 5.4 结论
+
+所有 7 个场景验证通过。`--settings` 的合并机制正确处理了：
+1. 冲突 key 覆盖 ✅
+2. 非冲突 key 保留（包括 CLAUDE_*/ANTHROPIC_* 前缀）✅
+3. 进程 env 保留 ✅
+4. 混合场景正确处理 ✅
+
+**用户在 settings.json 中手动配置的 CLAUDE_*/ANTHROPIC_* env（如 `CLAUDE_CODE_MAX_OUTPUT_TOKENS`），只要 provider 没有定义同名 key，就会保留生效。这是正确行为。**
+
+---
+
