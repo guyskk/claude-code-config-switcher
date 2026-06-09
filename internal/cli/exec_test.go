@@ -1,9 +1,9 @@
 package cli
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/guyskk/ccc/internal/config"
@@ -18,211 +18,109 @@ func writeSettingsJSON(t *testing.T, content string) {
 	}
 }
 
-func TestCheckSettingsEnvConflict_NoSettingsFile(t *testing.T) {
-	cleanup := setupTestDir(t)
-	defer cleanup()
-
-	cfg := &config.Config{
-		Settings: map[string]interface{}{},
-		Providers: map[string]map[string]interface{}{
-			"glm": {
-				"env": map[string]interface{}{
-					"ANTHROPIC_BASE_URL":   "https://example.com",
-					"ANTHROPIC_AUTH_TOKEN": "sk-x",
-				},
+func TestBuildProviderSettingsJSON(t *testing.T) {
+	tests := []struct {
+		name     string
+		envMap   map[string]interface{}
+		wantNil  bool
+		wantKeys []string
+	}{
+		{
+			name:    "nil map returns empty string",
+			envMap:  nil,
+			wantNil: true,
+		},
+		{
+			name:    "empty map returns empty string",
+			envMap:  map[string]interface{}{},
+			wantNil: true,
+		},
+		{
+			name:     "single key",
+			envMap:   map[string]interface{}{"ANTHROPIC_BASE_URL": "https://example.com"},
+			wantKeys: []string{"ANTHROPIC_BASE_URL"},
+		},
+		{
+			name: "multiple keys",
+			envMap: map[string]interface{}{
+				"ANTHROPIC_BASE_URL":   "https://example.com",
+				"ANTHROPIC_AUTH_TOKEN": "sk-test",
 			},
+			wantKeys: []string{"ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN"},
+		},
+		{
+			name:     "special characters are escaped",
+			envMap:   map[string]interface{}{"KEY": `value with "quotes" and \backslash`},
+			wantKeys: []string{"KEY"},
 		},
 	}
 
-	if err := checkSettingsEnvConflict(cfg, "glm"); err != nil {
-		t.Errorf("expected no error when settings.json missing, got: %v", err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := buildProviderSettingsJSON(tt.envMap)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if tt.wantNil {
+				if result != "" {
+					t.Errorf("expected empty string, got: %s", result)
+				}
+				return
+			}
+
+			if result == "" {
+				t.Fatal("expected non-empty JSON, got empty string")
+			}
+
+			// Verify it's valid JSON
+			var parsed map[string]interface{}
+			if err := json.Unmarshal([]byte(result), &parsed); err != nil {
+				t.Fatalf("result is not valid JSON: %v\nresult: %s", err, result)
+			}
+
+			// Verify it has "env" key
+			envVal, ok := parsed["env"]
+			if !ok {
+				t.Fatal("JSON should have 'env' key")
+			}
+
+			envMap, ok := envVal.(map[string]interface{})
+			if !ok {
+				t.Fatal("'env' should be a map")
+			}
+
+			// Verify expected keys are present
+			for _, key := range tt.wantKeys {
+				if _, exists := envMap[key]; !exists {
+					t.Errorf("expected key %q in env map, got keys: %v", key, envMap)
+				}
+			}
+		})
 	}
 }
 
-func TestCheckSettingsEnvConflict_NoConflict(t *testing.T) {
-	cleanup := setupTestDir(t)
-	defer cleanup()
+func TestBuildProviderSettingsJSON_ExpandsEnvVars(t *testing.T) {
+	// Set a test env var
+	t.Setenv("CCC_TEST_BASE_URL", "https://expanded.example.com")
 
-	writeSettingsJSON(t, `{"env":{"MY_CUSTOM_VAR":"value"}}`)
-
-	cfg := &config.Config{
-		Settings: map[string]interface{}{},
-		Providers: map[string]map[string]interface{}{
-			"glm": {
-				"env": map[string]interface{}{
-					"ANTHROPIC_BASE_URL":   "https://example.com",
-					"ANTHROPIC_AUTH_TOKEN": "sk-x",
-				},
-			},
-		},
+	envMap := map[string]interface{}{
+		"ANTHROPIC_BASE_URL": "${CCC_TEST_BASE_URL}",
 	}
 
-	if err := checkSettingsEnvConflict(cfg, "glm"); err != nil {
-		t.Errorf("expected no error when only safe custom env present, got: %v", err)
-	}
-}
-
-func TestCheckSettingsEnvConflict_PrefixHit(t *testing.T) {
-	cleanup := setupTestDir(t)
-	defer cleanup()
-
-	writeSettingsJSON(t, `{"env":{"ANTHROPIC_BASE_URL":"https://old.example.com"}}`)
-
-	cfg := &config.Config{
-		Settings: map[string]interface{}{},
-		Providers: map[string]map[string]interface{}{
-			"glm": {
-				"env": map[string]interface{}{
-					"ANTHROPIC_BASE_URL":   "https://new.example.com",
-					"ANTHROPIC_AUTH_TOKEN": "sk-x",
-				},
-			},
-		},
+	result, err := buildProviderSettingsJSON(envMap)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
 
-	err := checkSettingsEnvConflict(cfg, "glm")
-	if err == nil {
-		t.Fatal("expected conflict error, got nil")
-	}
-	if !strings.Contains(err.Error(), "ANTHROPIC_BASE_URL") {
-		t.Errorf("error should mention conflict key, got: %v", err)
-	}
-	if strings.Contains(err.Error(), "https://old.example.com") {
-		t.Errorf("error must not contain user value (leak risk), got: %v", err)
-	}
-}
-
-func TestCheckSettingsEnvConflict_ManagedHit(t *testing.T) {
-	cleanup := setupTestDir(t)
-	defer cleanup()
-
-	writeSettingsJSON(t, `{"env":{"API_TIMEOUT":"60000"}}`)
-
-	cfg := &config.Config{
-		Settings: map[string]interface{}{
-			"env": map[string]interface{}{
-				"API_TIMEOUT": "30000",
-			},
-		},
-		Providers: map[string]map[string]interface{}{
-			"glm": {
-				"env": map[string]interface{}{
-					"ANTHROPIC_BASE_URL":   "https://example.com",
-					"ANTHROPIC_AUTH_TOKEN": "sk-x",
-				},
-			},
-		},
+	var parsed map[string]interface{}
+	if err := json.Unmarshal([]byte(result), &parsed); err != nil {
+		t.Fatalf("result is not valid JSON: %v", err)
 	}
 
-	err := checkSettingsEnvConflict(cfg, "glm")
-	if err == nil {
-		t.Fatal("expected conflict error for managed key, got nil")
-	}
-	if !strings.Contains(err.Error(), "API_TIMEOUT") {
-		t.Errorf("error should mention conflict key API_TIMEOUT, got: %v", err)
-	}
-}
-
-func TestCheckSettingsEnvConflict_UnknownProvider(t *testing.T) {
-	cleanup := setupTestDir(t)
-	defer cleanup()
-
-	writeSettingsJSON(t, `{"env":{"ANTHROPIC_BASE_URL":"https://x"}}`)
-
-	cfg := &config.Config{
-		Settings:  map[string]interface{}{},
-		Providers: map[string]map[string]interface{}{},
-	}
-
-	// Unknown provider: guard skips silently, leaves the real error to SwitchWithHook.
-	if err := checkSettingsEnvConflict(cfg, "missing"); err != nil {
-		t.Errorf("expected guard to skip on unknown provider, got: %v", err)
-	}
-}
-
-func TestCheckValidateEnvConflict_NoSettingsFile(t *testing.T) {
-	cleanup := setupTestDir(t)
-	defer cleanup()
-
-	cfg := &config.Config{
-		Settings: map[string]interface{}{},
-		Providers: map[string]map[string]interface{}{
-			"glm": {"env": map[string]interface{}{"ANTHROPIC_BASE_URL": "https://x"}},
-		},
-	}
-
-	if err := checkValidateEnvConflict(cfg, &ValidateCommand{}); err != nil {
-		t.Errorf("expected no error when settings.json missing, got: %v", err)
-	}
-}
-
-func TestCheckValidateEnvConflict_AllProvidersStrict(t *testing.T) {
-	cleanup := setupTestDir(t)
-	defer cleanup()
-
-	// settings.json only has a key that overlaps with provider "kimi"'s env,
-	// not "glm"'s. With --all the guard must still detect it.
-	writeSettingsJSON(t, `{"env":{"ANTHROPIC_SMALL_FAST_MODEL":"old"}}`)
-
-	cfg := &config.Config{
-		Settings: map[string]interface{}{},
-		Providers: map[string]map[string]interface{}{
-			"glm": {"env": map[string]interface{}{"ANTHROPIC_BASE_URL": "https://glm"}},
-			"kimi": {"env": map[string]interface{}{
-				"ANTHROPIC_BASE_URL":         "https://kimi",
-				"ANTHROPIC_SMALL_FAST_MODEL": "kimi-fast",
-			}},
-		},
-	}
-
-	err := checkValidateEnvConflict(cfg, &ValidateCommand{ValidateAll: true})
-	if err == nil {
-		t.Fatal("expected conflict for ANTHROPIC_SMALL_FAST_MODEL under --all, got nil")
-	}
-	if !strings.Contains(err.Error(), "ANTHROPIC_SMALL_FAST_MODEL") {
-		t.Errorf("error should mention conflict key, got: %v", err)
-	}
-}
-
-func TestCheckValidateEnvConflict_SingleProviderScope(t *testing.T) {
-	cleanup := setupTestDir(t)
-	defer cleanup()
-
-	// settings.json has ANTHROPIC_BASE_URL which always triggers prefix rule,
-	// regardless of which provider is targeted.
-	writeSettingsJSON(t, `{"env":{"ANTHROPIC_BASE_URL":"https://old"}}`)
-
-	cfg := &config.Config{
-		CurrentProvider: "glm",
-		Settings:        map[string]interface{}{},
-		Providers: map[string]map[string]interface{}{
-			"glm": {"env": map[string]interface{}{"ANTHROPIC_BASE_URL": "https://glm"}},
-		},
-	}
-
-	err := checkValidateEnvConflict(cfg, &ValidateCommand{Provider: "glm"})
-	if err == nil {
-		t.Fatal("expected conflict, got nil")
-	}
-	if !strings.Contains(err.Error(), "ANTHROPIC_BASE_URL") {
-		t.Errorf("error should mention conflict key, got: %v", err)
-	}
-}
-
-func TestCheckValidateEnvConflict_NoConflict(t *testing.T) {
-	cleanup := setupTestDir(t)
-	defer cleanup()
-
-	writeSettingsJSON(t, `{"env":{"MY_CUSTOM":"x"}}`)
-
-	cfg := &config.Config{
-		Settings: map[string]interface{}{},
-		Providers: map[string]map[string]interface{}{
-			"glm": {"env": map[string]interface{}{"ANTHROPIC_BASE_URL": "https://x"}},
-		},
-	}
-
-	if err := checkValidateEnvConflict(cfg, &ValidateCommand{ValidateAll: true}); err != nil {
-		t.Errorf("expected no error when only safe env present, got: %v", err)
+	envResult := parsed["env"].(map[string]interface{})
+	got := envResult["ANTHROPIC_BASE_URL"].(string)
+	if got != "https://expanded.example.com" {
+		t.Errorf("expected env var to be expanded, got: %s", got)
 	}
 }

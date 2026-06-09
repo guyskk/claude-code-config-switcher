@@ -246,31 +246,6 @@ func LoadSettings() (map[string]interface{}, error) {
 	return settings, nil
 }
 
-// FilterUserEnvForSettings filters user-defined env to only keep safe keys.
-// It removes keys in managedEnvKeys or with ANTHROPIC_*/CLAUDE_* prefix.
-// Returns nil if no keys remain.
-func FilterUserEnvForSettings(userEnv map[string]interface{}, managedEnvKeys map[string]bool) map[string]interface{} {
-	if userEnv == nil {
-		return nil
-	}
-
-	filtered := make(map[string]interface{})
-	for key, value := range userEnv {
-		if managedEnvKeys[key] {
-			continue
-		}
-		if strings.HasPrefix(key, "ANTHROPIC_") || strings.HasPrefix(key, "CLAUDE_") {
-			continue
-		}
-		filtered[key] = value
-	}
-
-	if len(filtered) == 0 {
-		return nil
-	}
-	return filtered
-}
-
 // MergeEnvMaps merges multiple env maps. Later maps override earlier ones.
 // Returns nil if no maps have entries.
 func MergeEnvMaps(maps ...map[string]interface{}) map[string]interface{} {

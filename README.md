@@ -105,17 +105,14 @@ Config file location, default: `~/.claude/ccc.json`
 
 When you run `ccc`, your existing `settings.json` is read and deep-merged with ccc.json. Priority: **user `settings.json` > provider > base `settings`**. Your manual edits, plugins, and hooks are preserved; provider env is passed via command line and never written into `settings.json`.
 
-#### Environment Variable Conflicts (Hard Guard)
+#### Environment Variable Handling
 
-Claude Code's `settings.json` `env` field **overrides** environment variables passed by ccc when launching claude. If `settings.json` shadows provider env, switching silently fails (wrong base_url / token / model).
+Claude Code's `settings.json` `env` field **overrides** environment variables passed by ccc when launching claude. To ensure provider env takes precedence, ccc passes provider env via the `--settings` CLI parameter, which has higher priority than `settings.json`.
 
-**ccc refuses to start claude — and refuses to run `ccc validate` — when it detects such conflicts.** It prints the offending keys (without values, to avoid leaking secrets) and never modifies your `settings.json` `env` field.
-
-A key is considered conflicting if it:
-- starts with `ANTHROPIC_` or `CLAUDE_`, **or**
-- collides with any key defined in ccc.json's base / provider `env`.
-
-**How to fix:** remove those keys from `~/.claude/settings.json`'s `env` and move provider-related configuration into `providers.<name>.env` in `~/.claude/ccc.json`.
+This means:
+- Your `settings.json` `env` is preserved as-is (ccc never modifies it)
+- Provider env automatically overrides conflicting keys via `--settings`
+- Non-conflicting keys in `settings.json` still work normally
 
 ```json
 {

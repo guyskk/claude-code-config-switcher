@@ -231,28 +231,25 @@ func TestSwitchWithHookUserEnv(t *testing.T) {
 			t.Fatalf("SwitchWithHook() error = %v", err)
 		}
 
-		// Verify settings.json has filtered user env
+		// Verify settings.json preserves user's complete env (no filtering)
 		settingsEnv := config.GetEnv(result.Settings)
 		if settingsEnv == nil {
-			t.Fatal("Settings should contain filtered user env")
+			t.Fatal("Settings should contain user env")
 		}
 
-		// MY_CUSTOM_VAR and MY_OTHER_VAR should be preserved (not in base/provider env)
+		// All user env keys should be preserved (conflicts are now handled
+		// by --settings CLI parameter, not by filtering settings.json)
 		if settingsEnv["MY_CUSTOM_VAR"] != "custom_value" {
 			t.Errorf("MY_CUSTOM_VAR = %v, want custom_value", settingsEnv["MY_CUSTOM_VAR"])
 		}
 		if settingsEnv["MY_OTHER_VAR"] != "other_value" {
 			t.Errorf("MY_OTHER_VAR = %v, want other_value", settingsEnv["MY_OTHER_VAR"])
 		}
-
-		// ANTHROPIC_MODEL should be filtered (ANTHROPIC_ prefix)
-		if _, exists := settingsEnv["ANTHROPIC_MODEL"]; exists {
-			t.Error("ANTHROPIC_MODEL should be filtered from settings env")
+		if settingsEnv["ANTHROPIC_MODEL"] != "should-be-filtered" {
+			t.Errorf("ANTHROPIC_MODEL = %v, want should-be-filtered", settingsEnv["ANTHROPIC_MODEL"])
 		}
-
-		// DISABLE_TELEMETRY should be filtered (exists in base env)
-		if _, exists := settingsEnv["DISABLE_TELEMETRY"]; exists {
-			t.Error("DISABLE_TELEMETRY should be filtered (conflicts with base env)")
+		if settingsEnv["DISABLE_TELEMETRY"] != "1" {
+			t.Errorf("DISABLE_TELEMETRY = %v, want 1", settingsEnv["DISABLE_TELEMETRY"])
 		}
 
 		// Verify subprocess env does not contain user custom vars
@@ -304,12 +301,17 @@ func TestSwitchWithHookUserEnv(t *testing.T) {
 			t.Fatalf("SwitchWithHook() error = %v", err)
 		}
 
-		// All user env keys should be filtered:
-		// - API_TIMEOUT conflicts with base env
-		// - ANTHROPIC_AUTH_TOKEN has ANTHROPIC_ prefix
+		// User env keys are preserved in settings.json (conflicts are handled
+		// by --settings CLI parameter when launching claude, not by filtering)
 		settingsEnv := config.GetEnv(result.Settings)
-		if settingsEnv != nil {
-			t.Errorf("Settings env should be nil when all user keys are filtered, got: %v", settingsEnv)
+		if settingsEnv == nil {
+			t.Fatal("Settings should contain user env")
+		}
+		if settingsEnv["API_TIMEOUT"] != "99999" {
+			t.Errorf("Settings API_TIMEOUT = %v, want 99999 (user value preserved)", settingsEnv["API_TIMEOUT"])
+		}
+		if settingsEnv["ANTHROPIC_AUTH_TOKEN"] != "user-token" {
+			t.Errorf("Settings ANTHROPIC_AUTH_TOKEN = %v, want user-token (user value preserved)", settingsEnv["ANTHROPIC_AUTH_TOKEN"])
 		}
 
 		// Subprocess env should use base + provider values, not user's
@@ -322,6 +324,11 @@ func TestSwitchWithHookUserEnv(t *testing.T) {
 		}
 		if envMap["ANTHROPIC_AUTH_TOKEN"] != "sk-glm-xxx" {
 			t.Errorf("Subprocess ANTHROPIC_AUTH_TOKEN = %v, want sk-glm-xxx (from provider)", envMap["ANTHROPIC_AUTH_TOKEN"])
+		}
+
+		// Verify ProviderEnv is set for --settings usage
+		if result.ProviderEnv == nil {
+			t.Error("ProviderEnv should not be nil")
 		}
 	})
 

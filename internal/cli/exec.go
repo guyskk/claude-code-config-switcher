@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -15,49 +16,6 @@ import (
 // This uses syscall.Exec which does not return on success.
 func executeProcess(path string, args []string, env []string) error {
 	return syscall.Exec(path, args, env)
-}
-
-// checkSettingsEnvConflict refuses to start claude when settings.json's env field
-// contains keys that would silently override the provider env ccc passes to claude.
-// See docs/discuss-20260519-env-priority.md for the empirical proof that settings.json
-// env > process env in Claude Code.
-//
-// managedEnvKeys are derived from base env (cfg.Settings.env) plus the active
-// provider's env. A non-nil error means the user must clean settings.json before ccc
-// will launch claude — ccc never modifies the user's settings.json on their behalf.
-func checkSettingsEnvConflict(cfg *config.Config, providerName string) error {
-	providerSettings, ok := cfg.Providers[providerName]
-	if !ok {
-		// Provider lookup failure is surfaced later by SwitchWithHook; we just skip the guard.
-		return nil
-	}
-
-	userSettings, err := config.LoadSettings()
-	if err != nil {
-		return fmt.Errorf("failed to load settings.json for conflict check: %w", err)
-	}
-	if userSettings == nil {
-		return nil
-	}
-
-	managedEnvKeys := make(map[string]bool)
-	for key := range config.GetEnv(cfg.Settings) {
-		managedEnvKeys[key] = true
-	}
-	for key := range config.GetEnv(providerSettings) {
-		managedEnvKeys[key] = true
-	}
-
-	conflicts := config.DetectSettingsEnvConflicts(userSettings, managedEnvKeys)
-	if len(conflicts) == 0 {
-		return nil
-	}
-
-	return fmt.Errorf("%s", config.FormatEnvConflictError(
-		config.GetSettingsPath(),
-		config.GetConfigPath(),
-		conflicts,
-	))
 }
 
 // determineProvider determines which provider to use based on the command and config.
@@ -91,20 +49,14 @@ func determineProvider(cmd *Command, cfg *config.Config) string {
 
 // runClaude executes the claude command for the given provider.
 // This replaces the current process with claude using syscall.Exec.
-// Provider env variables are passed to the claude subprocess.
+// Provider env variables are passed to the claude subprocess via both
+// process env and --settings CLI parameter (which has higher priority
+// than settings.json env).
 func runClaude(cfg *config.Config, cmd *Command) error {
 	// Determine which provider to use
 	providerName := determineProvider(cmd, cfg)
 	if providerName == "" {
 		return fmt.Errorf("no providers configured")
-	}
-
-	// Guard: refuse to start claude when settings.json contains env keys that
-	// would silently override the provider env ccc passes to the claude process.
-	// Must run BEFORE SwitchWithHook so we never rewrite settings.json while leaving
-	// the conflict in place. See docs/discuss-20260519-env-priority.md.
-	if err := checkSettingsEnvConflict(cfg, providerName); err != nil {
-		return err
 	}
 
 	// Switch provider and clean up supervisor hooks
@@ -138,6 +90,19 @@ func runClaude(cfg *config.Config, cmd *Command) error {
 		execArgs = append(execArgs, cfg.ClaudeArgs...)
 	}
 	execArgs = append(execArgs, cmd.ClaudeArgs...)
+
+	// Pass provider env via --settings CLI parameter.
+	// --settings has "Command line arguments" priority (level 2), which is higher
+	// than User settings (level 5, ~/.claude/settings.json). This ensures provider
+	// env overrides any conflicting keys in settings.json without modifying the file.
+	// See docs/discuss-20260609-env-override.md for the empirical proof.
+	if result.ProviderEnv != nil && len(result.ProviderEnv) > 0 {
+		settingsJSON, err := buildProviderSettingsJSON(result.ProviderEnv)
+		if err != nil {
+			return fmt.Errorf("failed to build provider settings: %w", err)
+		}
+		execArgs = append(execArgs, "--settings", settingsJSON)
+	}
 
 	// Build environment variables
 	// Start with current process environment
@@ -175,4 +140,29 @@ func filterEnvVars(env []string, shouldKeep func(string) bool) []string {
 		}
 	}
 	return filtered
+}
+
+// buildProviderSettingsJSON serializes provider env into a JSON string
+// suitable for passing to claude --settings.
+// Environment variable references like ${VAR} are expanded before serialization.
+// Returns empty string if providerEnv is nil or empty.
+func buildProviderSettingsJSON(providerEnv map[string]interface{}) (string, error) {
+	if len(providerEnv) == 0 {
+		return "", nil
+	}
+
+	// Expand env var references
+	expanded := make(map[string]interface{}, len(providerEnv))
+	for k, v := range providerEnv {
+		expanded[k] = os.ExpandEnv(fmt.Sprintf("%v", v))
+	}
+
+	settings := map[string]interface{}{
+		"env": expanded,
+	}
+	data, err := json.Marshal(settings)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal provider settings: %w", err)
+	}
+	return string(data), nil
 }

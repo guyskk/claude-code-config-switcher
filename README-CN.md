@@ -86,17 +86,14 @@ ccc validate --all
 
 运行 `ccc` 时，会读取你已有的 `settings.json` 并与 ccc.json 深度合并。优先级：**用户 `settings.json` > 提供商 > 基础 `settings`**。你手动编辑的配置、插件、hooks 都会被保留；提供商的环境变量通过命令行传递，不会写入 `settings.json`。
 
-#### 环境变量冲突（硬守卫）
+#### 环境变量处理
 
-Claude Code 的 `settings.json` `env` 字段会**覆盖** ccc 启动 claude 时传入的环境变量。如果 `settings.json` 中存在会遮蔽 provider env 的 key，切换 provider 会静默失效（用错 base_url / token / model）。
+Claude Code 的 `settings.json` `env` 字段会**覆盖** ccc 启动 claude 时传入的环境变量。为确保 provider env 优先生效，ccc 通过 `--settings` CLI 参数传入 provider env，该参数优先级高于 `settings.json`。
 
-**当检测到此类冲突时，ccc 会拒绝启动 claude，`ccc validate` 同样会被拒绝。** ccc 不会静默修改你的文件，而是会打印冲突的 key（不打印 value，避免泄露密钥）并告诉你如何修复。**ccc 不会修改你 `settings.json` 的 `env` 字段。**
-
-满足以下任一条件的 key 视为冲突：
-- 以 `ANTHROPIC_` 或 `CLAUDE_` 开头，**或**
-- 与 ccc.json 中 base / provider `env` 定义的任何 key 同名。
-
-**修复方法**：从 `~/.claude/settings.json` 的 `env` 中删除这些 key，并把 provider 相关配置改到 `~/.claude/ccc.json` 的 `providers.<name>.env` 中。
+这意味着：
+- 你的 `settings.json` `env` 保持原样（ccc 不会修改它）
+- provider env 通过 `--settings` 自动覆盖冲突的 key
+- `settings.json` 中非冲突的 key 仍然正常工作
 
 ## Patch 命令：用 ccc 替代 `claude` 命令
 

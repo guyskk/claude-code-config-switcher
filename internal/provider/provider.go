@@ -21,9 +21,12 @@ type EnvPair struct {
 type SwitchResult struct {
 	// Settings is the merged settings (without env) that was saved to settings.json
 	Settings map[string]interface{}
-	// EnvVars contains the merged environment variables (settings.env + provider.env)
+	// EnvVars contains the merged environment variables (base.env + provider.env)
 	// that should be passed to the claude subprocess
 	EnvVars []EnvPair
+	// ProviderEnv contains the merged base + provider env map,
+	// used to build the --settings JSON for claude CLI.
+	ProviderEnv map[string]interface{}
 }
 
 // SwitchWithHook switches to the specified provider and cleans up supervisor hooks.
@@ -56,25 +59,18 @@ func SwitchWithHook(cfg *config.Config, providerName string) (*SwitchResult, err
 	baseEnvMap := config.GetEnv(cfg.Settings)
 	providerEnvMap := config.GetEnv(providerSettings)
 
-	// Build managed keys = base env keys + provider env keys
-	managedEnvKeys := make(map[string]bool)
-	for key := range baseEnvMap {
-		managedEnvKeys[key] = true
-	}
-	for key := range providerEnvMap {
-		managedEnvKeys[key] = true
-	}
-
 	// Merge settings with priority: user > provider > base
 	mergedSettings := config.MergeWithPriority(cfg.Settings, providerSettings, userSettings)
 
 	// Remove Supervisor Stop hook and related fields
 	cleanedSettings := config.RemoveStopHook(mergedSettings)
 
-	// Remove merged env from settings, replace with filtered user env
+	// Remove merged env from settings, replace with user's original env.
+	// Conflicting keys are no longer filtered here -- they are overridden
+	// by the --settings CLI parameter when launching claude (higher priority).
 	delete(cleanedSettings, "env")
-	if filtered := config.FilterUserEnvForSettings(userEnvMap, managedEnvKeys); len(filtered) > 0 {
-		cleanedSettings["env"] = filtered
+	if userEnvMap != nil && len(userEnvMap) > 0 {
+		cleanedSettings["env"] = userEnvMap
 	}
 
 	// Save merged settings to settings.json
@@ -103,8 +99,9 @@ func SwitchWithHook(cfg *config.Config, providerName string) (*SwitchResult, err
 	envVars := envMapToPairs(subprocessEnvMap)
 
 	return &SwitchResult{
-		Settings: cleanedSettings,
-		EnvVars:  envVars,
+		Settings:    cleanedSettings,
+		EnvVars:     envVars,
+		ProviderEnv: subprocessEnvMap,
 	}, nil
 }
 
