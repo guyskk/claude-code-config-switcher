@@ -101,6 +101,9 @@ func TestBuildProviderSettingsJSON(t *testing.T) {
 }
 
 func TestBuildProviderSettingsJSON_ExpandsEnvVars(t *testing.T) {
+	cleanup := setupTestDir(t)
+	defer cleanup()
+
 	// Set a test env var
 	t.Setenv("CCC_TEST_BASE_URL", "https://expanded.example.com")
 
@@ -122,5 +125,107 @@ func TestBuildProviderSettingsJSON_ExpandsEnvVars(t *testing.T) {
 	got := envResult["ANTHROPIC_BASE_URL"].(string)
 	if got != "https://expanded.example.com" {
 		t.Errorf("expected env var to be expanded, got: %s", got)
+	}
+}
+
+func TestBuildProviderSettingsJSON_OverridesStaleKeys(t *testing.T) {
+	cleanup := setupTestDir(t)
+	defer cleanup()
+
+	// settings.json has model keys from a previous provider
+	writeSettingsJSON(t, `{
+		"env": {
+			"ANTHROPIC_MODEL": "mimo-v2.5-pro[1m]",
+			"ANTHROPIC_DEFAULT_HAIKU_MODEL": "mimo-v2.5[1m]",
+			"ANTHROPIC_DEFAULT_OPUS_MODEL": "mimo-v2.5-pro[1m]",
+			"ANTHROPIC_DEFAULT_SONNET_MODEL": "mimo-v2.5-pro[1m]",
+			"ANTHROPIC_AUTH_TOKEN": "old-token",
+			"MY_CUSTOM_VAR": "keep-me"
+		}
+	}`)
+
+	// Provider only defines AUTH_TOKEN and BASE_URL (like tokenswitch)
+	providerEnv := map[string]interface{}{
+		"ANTHROPIC_AUTH_TOKEN": "new-token",
+		"ANTHROPIC_BASE_URL":   "https://example.com",
+	}
+
+	result, err := buildProviderSettingsJSON(providerEnv)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var parsed map[string]interface{}
+	if err := json.Unmarshal([]byte(result), &parsed); err != nil {
+		t.Fatalf("result is not valid JSON: %v", err)
+	}
+
+	envMap := parsed["env"].(map[string]interface{})
+
+	// Provider keys should have provider values
+	if envMap["ANTHROPIC_AUTH_TOKEN"] != "new-token" {
+		t.Errorf("ANTHROPIC_AUTH_TOKEN = %v, want new-token", envMap["ANTHROPIC_AUTH_TOKEN"])
+	}
+	if envMap["ANTHROPIC_BASE_URL"] != "https://example.com" {
+		t.Errorf("ANTHROPIC_BASE_URL = %v, want https://example.com", envMap["ANTHROPIC_BASE_URL"])
+	}
+
+	// Stale model keys should be overridden to empty string
+	if envMap["ANTHROPIC_MODEL"] != "" {
+		t.Errorf("ANTHROPIC_MODEL = %v, want empty string", envMap["ANTHROPIC_MODEL"])
+	}
+	if envMap["ANTHROPIC_DEFAULT_HAIKU_MODEL"] != "" {
+		t.Errorf("ANTHROPIC_DEFAULT_HAIKU_MODEL = %v, want empty string", envMap["ANTHROPIC_DEFAULT_HAIKU_MODEL"])
+	}
+	if envMap["ANTHROPIC_DEFAULT_OPUS_MODEL"] != "" {
+		t.Errorf("ANTHROPIC_DEFAULT_OPUS_MODEL = %v, want empty string", envMap["ANTHROPIC_DEFAULT_OPUS_MODEL"])
+	}
+	if envMap["ANTHROPIC_DEFAULT_SONNET_MODEL"] != "" {
+		t.Errorf("ANTHROPIC_DEFAULT_SONNET_MODEL = %v, want empty string", envMap["ANTHROPIC_DEFAULT_SONNET_MODEL"])
+	}
+
+	// Non-ANTHROPIC/CLAUDE keys should NOT be in --settings
+	if _, exists := envMap["MY_CUSTOM_VAR"]; exists {
+		t.Error("MY_CUSTOM_VAR should not be in --settings (not ANTHROPIC_*/CLAUDE_*)")
+	}
+}
+
+func TestBuildProviderSettingsJSON_ProviderOverridesNotNulled(t *testing.T) {
+	cleanup := setupTestDir(t)
+	defer cleanup()
+
+	// settings.json has model keys
+	writeSettingsJSON(t, `{
+		"env": {
+			"ANTHROPIC_MODEL": "old-model",
+			"ANTHROPIC_BASE_URL": "http://old"
+		}
+	}`)
+
+	// Provider defines ALL keys — should NOT be set to empty
+	providerEnv := map[string]interface{}{
+		"ANTHROPIC_AUTH_TOKEN": "new-token",
+		"ANTHROPIC_BASE_URL":   "https://new.example.com",
+		"ANTHROPIC_MODEL":      "new-model",
+	}
+
+	result, err := buildProviderSettingsJSON(providerEnv)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var parsed map[string]interface{}
+	if err := json.Unmarshal([]byte(result), &parsed); err != nil {
+		t.Fatalf("result is not valid JSON: %v", err)
+	}
+
+	envMap := parsed["env"].(map[string]interface{})
+
+	// Provider values should win, not empty string
+	if envMap["ANTHROPIC_MODEL"] != "new-model" {
+		t.Errorf("ANTHROPIC_MODEL = %v, want new-model", envMap["ANTHROPIC_MODEL"])
+	}
+	if envMap["ANTHROPIC_BASE_URL"] != "https://new.example.com" {
+		t.Errorf("ANTHROPIC_BASE_URL = %v, want https://new.example.com", envMap["ANTHROPIC_BASE_URL"])
 	}
 }
