@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-06-09
+
+### Fixed
+
+- Override stale `ANTHROPIC_*`/`CLAUDE_*` keys in `settings.json` via `--settings` (#86)
+  - When switching providers, stale env vars from previous provider no longer leak into session
+
+### Changed
+
+- Use `--settings` CLI param to automatically override `settings.json` env conflicts (#85)
+  - Replace hard guard (refuse-to-start) with automatic override via `--settings` (higher priority)
+  - Remove `env_guard.go` and related conflict detection code
+  - Behavior: settings.json env conflict → auto-override (was: error and abort)
+
 ## [0.4.0] - 2026-05-20
 
 ### Removed
@@ -133,6 +147,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Repositioned project as "Claude Code Supervisor"
 - Repository renamed from `claude-code-config-switcher` to `claude-code-supervisor`
 
+[0.5.0]: https://github.com/guyskk/claude-code-config-switcher/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/guyskk/claude-code-config-switcher/compare/v0.3.3...v0.4.0
 [0.3.3]: https://github.com/guyskk/claude-code-config-switcher/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/guyskk/claude-code-config-switcher/compare/v0.3.1...v0.3.2
