@@ -53,6 +53,13 @@ You can also create the config file manually:
         "ANTHROPIC_AUTH_TOKEN": "YOUR_API_KEY_HERE",
         "ANTHROPIC_MODEL": "kimi-k2-thinking"
       }
+    },
+    "teapotrouter": {
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.teapotrouter.com",
+        "ANTHROPIC_AUTH_TOKEN": "YOUR_API_KEY_HERE",
+        "ANTHROPIC_MODEL": "claude-sonnet-5-5"
+      }
     }
   }
 }
@@ -144,6 +151,14 @@ This means:
         "ANTHROPIC_AUTH_TOKEN": "YOUR_API_KEY_HERE",
         "ANTHROPIC_MODEL": "kimi-k2-thinking",
         "ANTHROPIC_SMALL_FAST_MODEL": "kimi-k2-0905-preview"
+      }
+    },
+    "teapotrouter": {
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.teapotrouter.com",
+        "ANTHROPIC_AUTH_TOKEN": "YOUR_API_KEY_HERE",
+        "ANTHROPIC_MODEL": "claude-sonnet-5-5",
+        "ANTHROPIC_SMALL_FAST_MODEL": "claude-haiku-4-5"
       }
     }
   }
